@@ -21,6 +21,18 @@ function tempFile(string $content = ''): DownloadedFile
     return new DownloadedFile($tmpFile);
 }
 
+beforeEach(function () {
+    $this->staticValuesBackup = [
+        'max_file_size' => DownloadedFile::$maxFileSize,
+        'allowed_extensions' => DownloadedFile::$allowedExtensions,
+    ];
+});
+
+afterEach(function () {
+    DownloadedFile::$maxFileSize = $this->staticValuesBackup['max_file_size'];
+    DownloadedFile::$allowedExtensions = $this->staticValuesBackup['allowed_extensions'];
+});
+
 test('invalid file path', function () {
     $invalidFilePath = 'invalid/path/to/file.txt';
     $file = new DownloadedFile($invalidFilePath);
@@ -61,6 +73,50 @@ it('validates image files with allowed extensions', function () {
 
         expect($file->isValidImage())->toBeTrue();
     }
+});
+
+test('trying to get validation error before calling isValidImage() method', function () {
+    $image = imageFile();
+
+    expect(fn() => $image->getValidationError())->toThrow(RuntimeException::class);
+});
+
+test('no errors are return on valid image', function () {
+    $image = imageFile();
+
+    expect($image->isValidImage())->toBeTrue()
+        ->and($image->getValidationError())->toBeNull();
+});
+
+test('get error for invalid file', function () {
+    $invalidFilePath = 'invalid/path/to/file.txt';
+    $file = new DownloadedFile($invalidFilePath);
+
+    expect($file->isValidImage())->toBeFalse()
+        ->and($file->getValidationError())->toBe('Downloaded file is not a valid file.');
+});
+
+test('get error for invalid image', function () {
+    $file = tempFile();
+
+    expect($file->isValidImage())->toBeFalse()
+        ->and($file->getValidationError())->toBe('Downloaded file is not a valid image.');
+});
+
+test('get error for invalid file image size', function () {
+    $image = imageFile();
+    $image::$maxFileSize = 1;
+
+    expect($image->isValidImage())->toBeFalse()
+        ->and($image->getValidationError())->toBe('Downloaded file is too large.');
+});
+
+test('get error for invalid image type', function () {
+    $image = imageFile('jpg');
+    $image::$allowedExtensions = ['png'];
+
+    expect($image->isValidImage())->toBeFalse()
+        ->and($image->getValidationError())->toBe('Downloaded file is not a valid image.');
 });
 
 it('returns false if the file size exceeds the maximum allowed', function () {

@@ -10,6 +10,8 @@ class DownloadedFile
 
     public static int $maxFileSize = 30_000_000;
 
+    protected false|string|null $validationError = false;
+
     public function __construct(protected string $path)
     {
     }
@@ -78,18 +80,41 @@ class DownloadedFile
     public function isValidImage(): bool
     {
         if (! $this->isFile()) {
+            $this->validationError = 'Downloaded file is not a valid file.';
+
             return false;
         }
 
         if (($size = $this->getSize()) === false) {
+            $this->validationError = 'Downloaded file is not a valid file.';
+
             return false;
         }
 
         if (static::$maxFileSize > 0 && $size > static::$maxFileSize) {
+            $this->validationError = 'Downloaded file is too large.';
+
             return false;
         }
 
-        return $this->path() !== '' && in_array($this->guessExtension(), static::$allowedExtensions);
+        if (! ($this->path() !== '' && in_array($this->guessExtension(), static::$allowedExtensions))) {
+            $this->validationError = 'Downloaded file is not a valid image.';
+
+            return false;
+        }
+
+        $this->validationError = null;
+
+        return true;
+    }
+
+    public function getValidationError(): ?string
+    {
+        if ($this->validationError === false) {
+            throw new \RuntimeException('You must first call isValidImage() method.');
+        }
+
+        return $this->validationError;
     }
 
     /**
