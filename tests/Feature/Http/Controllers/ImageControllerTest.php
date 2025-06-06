@@ -9,6 +9,12 @@ test('unauthorized index is rejected', function () {
     $response->assertUnauthorized();
 });
 
+test('unauthorized index is rejected (ForceJsonResponse)', function () {
+    $response = $this->get('/api/images');
+
+    $response->assertUnauthorized();
+});
+
 test('empty images index', function () {
     $response = $this
         ->actingAs(User::factory()->create())
