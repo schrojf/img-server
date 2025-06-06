@@ -41,7 +41,17 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+function user(array $attributes = []): \App\Models\User
 {
-    // ..
+    return \App\Models\User::factory()->create($attributes);
+}
+
+function image(?string $url = null): \App\Models\Image
+{
+    $url = $url ?? 'https://example.com/image'.uniqid().'.jpg';
+
+    return \App\Models\Image::create([
+        'uid' => hash('xxh128', $url),
+        'original_url' => $url,
+    ]);
 }

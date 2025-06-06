@@ -17,4 +17,27 @@ class ImageApiController extends Controller
             'total' =>  Image::count(),
         ]);
     }
+
+    /**
+     * Store a newly created resource in storage.
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'url' => 'required|url',
+        ]);
+
+        $uid = hash('xxh128', $data['url']);
+
+        $image = Image::firstOrCreate([
+            'uid' => $uid,
+        ], [
+            'original_url' => $data['url'],
+        ]);
+
+        return response()->json([
+            'image' => $image,
+            'is_new' => $image->wasRecentlyCreated,
+        ], $image->wasRecentlyCreated ? 201 : 200);
+    }
 }
