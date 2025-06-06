@@ -2,6 +2,7 @@
 
 namespace App\Actions;
 
+use App\DownloadedFile;
 use Illuminate\Support\Facades\Http;
 
 class TempFileDownloadAction
@@ -15,7 +16,7 @@ class TempFileDownloadAction
      * @return string
      * @throws \Illuminate\Http\Client\RequestException
      */
-    public function handle(string $url): string
+    public function handle(string $url): DownloadedFile
     {
         $temporaryFile = tempnam(sys_get_temp_dir(), static::$tmpPrefix);
 
@@ -24,6 +25,6 @@ class TempFileDownloadAction
             ->sink($temporaryFile)
             ->get($url);
 
-        return $temporaryFile;
+        return new DownloadedFile($temporaryFile);
     }
 }
