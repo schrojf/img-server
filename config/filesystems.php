@@ -47,6 +47,23 @@ return [
             'report' => false,
         ],
 
+        'downloaded' => [
+            'driver' => 'local',
+            'root' => storage_path('app/images/originals'),
+            'serve' => true,
+            'throw' => false,
+            'report' => false,
+        ],
+
+        'converted' => [
+            'driver' => 'local',
+            'root' => storage_path('app/images/variants'),
+            'url' => env('APP_URL').'/img',
+            'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),
@@ -75,6 +92,7 @@ return [
 
     'links' => [
         public_path('storage') => storage_path('app/public'),
+        public_path('img') => storage_path('app/images/variants'),
     ],
 
 ];
