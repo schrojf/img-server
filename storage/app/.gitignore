@@ -1,4 +1,7 @@
 *
+!images/
+!images/originals/
+!images/variants/
 !private/
 !public/
 !.gitignore
