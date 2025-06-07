@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use Illuminate\Contracts\Filesystem\Filesystem as FilesystemContract;
 use Illuminate\Support\Facades\Storage;
 
 readonly class ImageFile
@@ -26,5 +27,24 @@ readonly class ImageFile
             'mime_type' => $this->mimeType,
             'size' => $this->size,
         ];
+    }
+
+    public function url(): ?string
+    {
+        $storage = Storage::disk($this->disk);
+
+        if (! $storage->exists($this->fileName)) {
+            return null;
+        }
+
+        if ($storage->getVisibility($this->fileName) == FilesystemContract::VISIBILITY_PRIVATE) {
+            return null;
+        }
+
+        if (! isset($storage->getConfig()['url'])) {
+            return null;
+        }
+
+        return Storage::disk($this->disk)->url($this->fileName);
     }
 }

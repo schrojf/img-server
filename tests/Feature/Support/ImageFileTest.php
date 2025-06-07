@@ -10,7 +10,8 @@ test('invalid file', function () {
 
     $file = new ImageFile('local', 'file.bin', 'unknown', 0);
 
-    expect($file->stillExists())->toBeFalse();
+    expect($file->stillExists())->toBeFalse()
+        ->and($file->url())->toBeNull();
 });
 
 test('valid file', function () {
@@ -19,7 +20,8 @@ test('valid file', function () {
 
     $file = new ImageFile('local', 'a/b/c/file.bin', 'unknown', 0);
 
-    expect($file->stillExists())->toBeTrue();
+    expect($file->stillExists())->toBeTrue()
+        ->and($file->url())->toBeNull();
 });
 
 test('valid public file', function () {
@@ -30,7 +32,8 @@ test('valid public file', function () {
 
     $file = new ImageFile('local', 'a/b/c/file.bin', 'unknown', 0);
 
-    expect($file->stillExists())->toBeTrue();
+    expect($file->stillExists())->toBeTrue()
+        ->and($file->url())->toBe('http://localhost/a/b/c/file.bin');
 });
 
 test('valid private file', function () {
@@ -42,5 +45,6 @@ test('valid private file', function () {
 
     $file = new ImageFile('local', 'a/b/c/file.bin', 'unknown', 0);
 
-    expect($file->stillExists())->toBeTrue();
+    expect($file->stillExists())->toBeTrue()
+        ->and($file->url())->toBeNull();
 });
