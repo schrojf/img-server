@@ -2,7 +2,7 @@
 
 namespace App\Actions;
 
-use App\DownloadedFile;
+use App\Support\DownloadedFile;
 use Illuminate\Support\Facades\Http;
 
 class TempFileDownloadAction

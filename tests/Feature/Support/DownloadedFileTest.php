@@ -1,6 +1,6 @@
 <?php
 
-use App\DownloadedFile;
+use App\Support\DownloadedFile;
 use Illuminate\Http\Testing\FileFactory;
 
 function imageFile(string $extension = 'jpg', $width = 10, $height = 10): DownloadedFile
