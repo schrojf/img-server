@@ -2,37 +2,90 @@
 
 namespace App\Support;
 
+use Illuminate\Support\Facades\Config;
 use Symfony\Component\Mime\MimeTypes;
 
-class DownloadedFile
+readonly class DownloadedFile
 {
-    public static array $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
+    public bool $isFile;
 
-    public static int $maxFileSize = 30_000_000;
+    public bool $isValidImage;
 
-    protected false|string|null $validationError = false;
+    public ?string $mimeType;
 
-    public function __construct(protected string $path)
+    public ?string $extension;
+
+    public ?int $size;
+
+    public ?array $dimensions;
+
+    public ?string $firstError;
+
+    public function __construct(public string $path)
     {
-    }
+        if (($this->isFile = is_file($this->path)) === false || ($fileSize = filesize($this->path)) === false) {
+            $this->isValidImage = false;
+            $this->mimeType = null;
+            $this->extension = null;
+            $this->size = null;
+            $this->dimensions = null;
+            $this->firstError = 'Downloaded file is not a valid file.';
 
-    public function isFile(): bool
-    {
-        return is_file($this->path);
-    }
-
-    public function path(): string
-    {
-        return $this->path;
-    }
-
-    public function getSize(): int|false
-    {
-        if (! $this->isFile()) {
-            return false;
+            return;
         }
 
-        return filesize($this->path);
+        if ($this->hasInvalidFileSize($this->size = $fileSize)) {
+            $this->isValidImage = false;
+            $this->mimeType = null;
+            $this->extension = null;
+            $this->dimensions = null;
+            $this->firstError = 'Downloaded file is too large.';
+
+            return;
+        }
+
+        $this->mimeType = $this->getMimeType($this->path);
+        $this->extension = $this->guessExtension($this->mimeType);
+
+        if (($this->isValidImage = $this->hasAllowedExtension($this->extension)) === false) {
+            $this->dimensions = null;
+            $this->firstError = 'Downloaded file is not a valid image.';
+
+            return;
+        }
+
+        if (($this->dimensions = $this->getDimensions($this->path)) === null) {
+            $this->firstError = 'Downloaded file is not a valid image.';
+
+            return;
+        }
+
+        $this->firstError = null;
+    }
+
+    protected function hasInvalidFileSize(int $size): bool
+    {
+        $maxFileSize = Config::get('images.downloads.maxFileSize');
+
+        return $maxFileSize > 0 && $size > $maxFileSize;
+    }
+
+    /**
+     * Returns the mime type of the file.
+     *
+     * The mime type is guessed using a MimeTypeGuesserInterface instance,
+     * which uses finfo_file() then the "file" system binary,
+     * depending on which of those are available.
+     *
+     * @see MimeTypes
+     */
+    public function getMimeType(string $filePath): ?string
+    {
+        if (! class_exists(MimeTypes::class)) {
+            throw new \LogicException('You cannot guess the mime type as the Mime component is not installed. Try running "composer require symfony/mime".');
+        }
+
+        return MimeTypes::getDefault()->guessMimeType($filePath);
     }
 
     /**
@@ -46,75 +99,24 @@ class DownloadedFile
      * @see MimeTypes
      * @see getMimeType()
      */
-    public function guessExtension(): ?string
+    public function guessExtension(?string $mimeType): ?string
     {
         if (! class_exists(MimeTypes::class)) {
             throw new \LogicException('You cannot guess the extension as the Mime component is not installed. Try running "composer require symfony/mime".');
         }
 
-        return MimeTypes::getDefault()->getExtensions($this->getMimeType() ?? '')[0] ?? null;
+        return MimeTypes::getDefault()->getExtensions($mimeType ?? '')[0] ?? null;
     }
 
-    /**
-     * Returns the mime type of the file.
-     *
-     * The mime type is guessed using a MimeTypeGuesserInterface instance,
-     * which uses finfo_file() then the "file" system binary,
-     * depending on which of those are available.
-     *
-     * @see MimeTypes
-     */
-    public function getMimeType(): ?string
+    protected function hasAllowedExtension(?string $extension): bool
     {
-        if (! class_exists(MimeTypes::class)) {
-            throw new \LogicException('You cannot guess the mime type as the Mime component is not installed. Try running "composer require symfony/mime".');
-        }
-
-        if (! $this->isFile()) {
-            return null;
-        }
-
-        return MimeTypes::getDefault()->guessMimeType($this->path());
-    }
-
-    public function isValidImage(): bool
-    {
-        if (! $this->isFile()) {
-            $this->validationError = 'Downloaded file is not a valid file.';
-
+        if (is_null($extension)) {
             return false;
         }
 
-        if (($size = $this->getSize()) === false) {
-            $this->validationError = 'Downloaded file is not a valid file.';
+        $allowedExtensions = Config::get('images.downloads.allowedExtensions');
 
-            return false;
-        }
-
-        if (static::$maxFileSize > 0 && $size > static::$maxFileSize) {
-            $this->validationError = 'Downloaded file is too large.';
-
-            return false;
-        }
-
-        if (! ($this->path() !== '' && in_array($this->guessExtension(), static::$allowedExtensions))) {
-            $this->validationError = 'Downloaded file is not a valid image.';
-
-            return false;
-        }
-
-        $this->validationError = null;
-
-        return true;
-    }
-
-    public function getValidationError(): ?string
-    {
-        if ($this->validationError === false) {
-            throw new \RuntimeException('You must first call isValidImage() method.');
-        }
-
-        return $this->validationError;
+        return in_array($extension, $allowedExtensions);
     }
 
     /**
@@ -122,8 +124,15 @@ class DownloadedFile
      *
      * @return array|null
      */
-    public function dimensions(): array|false
+    protected function getDimensions(string $filePath): ?array
     {
-        return @getimagesize($this->path());
+        if (($dimensions = @getimagesize($filePath)) === false) {
+            return null;
+        }
+
+        return [
+            'width' => $dimensions[0],
+            'height' => $dimensions[1],
+        ];
     }
 }

@@ -2,6 +2,7 @@
 
 use App\Support\DownloadedFile;
 use Illuminate\Http\Testing\FileFactory;
+use Illuminate\Support\Facades\Config;
 
 function imageFile(string $extension = 'jpg', $width = 10, $height = 10): DownloadedFile
 {
@@ -21,48 +22,33 @@ function tempFile(string $content = ''): DownloadedFile
     return new DownloadedFile($tmpFile);
 }
 
-beforeEach(function () {
-    $this->staticValuesBackup = [
-        'max_file_size' => DownloadedFile::$maxFileSize,
-        'allowed_extensions' => DownloadedFile::$allowedExtensions,
-    ];
-});
-
-afterEach(function () {
-    DownloadedFile::$maxFileSize = $this->staticValuesBackup['max_file_size'];
-    DownloadedFile::$allowedExtensions = $this->staticValuesBackup['allowed_extensions'];
-});
-
 test('invalid file path', function () {
     $invalidFilePath = 'invalid/path/to/file.txt';
     $file = new DownloadedFile($invalidFilePath);
 
-    expect($file->isFile())->toBeFalse()
-        ->and($file->path())->toBe('invalid/path/to/file.txt')
-        ->and($file->dimensions())->toBeFalse()
-        ->and($file->getSize())->toBeFalse()
-        ->and($file->getMimeType())->toBeNull()
-        ->and($file->guessExtension())->toBeNull()
-        ->and($file->isValidImage())->toBeFalse();
+    expect($file->isFile)->toBeFalse()
+        ->and($file->path)->toBe('invalid/path/to/file.txt')
+        ->and($file->firstError)->toBe('Downloaded file is not a valid file.')
+        ->and($file->dimensions)->toBeNull()
+        ->and($file->size)->toBeNull()
+        ->and($file->mimeType)->toBeNull()
+        ->and($file->extension)->toBeNull()
+        ->and($file->isValidImage)->toBeFalse();
 });
 
 it('returns true for a valid image file', function () {
     $image = imageFile();
 
-    expect($image->isFile())->toBeTrue()
-        ->and($image->dimensions())->toBe([
-            10,
-            10,
-            2,
-            'width="10" height="10"',
-            'bits' => 8,
-            'channels' => 3,
-            'mime' => 'image/jpeg',
+    expect($image->isFile)->toBeTrue()
+        ->and($image->firstError)->toBeNull()
+        ->and($image->dimensions)->toBe([
+            'width' => 10,
+            'height' => 10,
         ])
-        ->and($image->getSize())->toBeGreaterThan(0)
-        ->and($image->getMimeType())->toBe('image/jpeg')
-        ->and($image->guessExtension())->toBe('jpg')
-        ->and($image->isValidImage())->toBeTrue();
+        ->and($image->size)->toBeGreaterThan(0)
+        ->and($image->mimeType)->toBe('image/jpeg')
+        ->and($image->extension)->toBe('jpg')
+        ->and($image->isValidImage)->toBeTrue();
 });
 
 it('validates image files with allowed extensions', function () {
@@ -71,78 +57,73 @@ it('validates image files with allowed extensions', function () {
     foreach ($extensions as $ext) {
         $file = imageFile($ext);
 
-        expect($file->isValidImage())->toBeTrue();
+        expect($file->isValidImage)->toBeTrue()
+            ->and($file->firstError)->toBeNull();
     }
-});
-
-test('trying to get validation error before calling isValidImage() method', function () {
-    $image = imageFile();
-
-    expect(fn() => $image->getValidationError())->toThrow(RuntimeException::class);
 });
 
 test('no errors are return on valid image', function () {
     $image = imageFile();
 
-    expect($image->isValidImage())->toBeTrue()
-        ->and($image->getValidationError())->toBeNull();
+    expect($image->isValidImage)->toBeTrue()
+        ->and($image->firstError)->toBeNull();
 });
 
 test('get error for invalid file', function () {
     $invalidFilePath = 'invalid/path/to/file.txt';
     $file = new DownloadedFile($invalidFilePath);
 
-    expect($file->isValidImage())->toBeFalse()
-        ->and($file->getValidationError())->toBe('Downloaded file is not a valid file.');
+    expect($file->isValidImage)->toBeFalse()
+        ->and($file->firstError)->toBe('Downloaded file is not a valid file.');
 });
 
 test('get error for invalid image', function () {
     $file = tempFile();
 
-    expect($file->isValidImage())->toBeFalse()
-        ->and($file->getValidationError())->toBe('Downloaded file is not a valid image.');
+    expect($file->isValidImage)->toBeFalse()
+        ->and($file->firstError)->toBe('Downloaded file is not a valid image.');
 });
 
 test('get error for invalid file image size', function () {
+    Config::set('images.downloads.maxFileSize', 1);
     $image = imageFile();
-    $image::$maxFileSize = 1;
 
-    expect($image->isValidImage())->toBeFalse()
-        ->and($image->getValidationError())->toBe('Downloaded file is too large.');
+    expect($image->isValidImage)->toBeFalse()
+        ->and($image->firstError)->toBe('Downloaded file is too large.');
 });
 
 test('get error for invalid image type', function () {
+    Config::set('images.downloads.allowedExtensions', ['png']);
     $image = imageFile('jpg');
-    $image::$allowedExtensions = ['png'];
 
-    expect($image->isValidImage())->toBeFalse()
-        ->and($image->getValidationError())->toBe('Downloaded file is not a valid image.');
+    expect($image->isValidImage)->toBeFalse()
+        ->and($image->firstError)->toBe('Downloaded file is not a valid image.');
 });
 
 it('returns false if the file size exceeds the maximum allowed', function () {
+    Config::set('images.downloads.maxFileSize', 1);
     $image = imageFile();
-    $image::$maxFileSize = 1;
 
-    expect($image->isValidImage())->toBeFalse();
+    expect($image->isValidImage)->toBeFalse();
 });
 
 it('returns false for a file with an invalid extension', function () {
     $file = tempFile('file content');
 
-    expect($file->isValidImage())->toBeFalse();
+    expect($file->isValidImage)->toBeFalse();
 });
 
 it('returns false for unsupported image file extensions', function () {
+    Config::set('images.downloads.allowedExtensions', ['png']);
     $image = imageFile('jpg');
-    $image::$allowedExtensions = ['png'];
 
-    expect($image->isValidImage())->toBeFalse();
+    expect($image->isValidImage)->toBeFalse();
 });
 
 it('returns false if the file is empty', function () {
     $file = tempFile();
 
-    expect($file->isValidImage())->toBeFalse();
+    expect($file->isValidImage)->toBeFalse();
 });
 
 it('fails validation if the file has no extension or mime type', function () {
@@ -152,75 +133,75 @@ it('fails validation if the file has no extension or mime type', function () {
 
     $file = new DownloadedFile($filePath);
 
-    expect($file->isValidImage())->toBeFalse();
+    expect($file->isValidImage)->toBeFalse();
 
     fclose($tempFile);
 });
 
 it('validates if file is file', function () {
     $file = tempFile('asd');
-    expect($file->isFile())->toBeTrue();
+    expect($file->isFile)->toBeTrue();
 
     $file = imageFile('image.jpg');
-    expect($file->isFile())->toBeTrue();
+    expect($file->isFile)->toBeTrue();
 });
 
 test('guessExtension method', function () {
     $emptyFile = tempFile();
-    expect($emptyFile->guessExtension())->toBeNull();
+    expect($emptyFile->extension)->toBeNull();
 
     $file = tempFile('file content');
-    expect($file->guessExtension())->toBe('txt');
+    expect($file->extension)->toBe('txt');
 
     $image = imageFile();
-    expect($image->guessExtension())->toBe('jpg');
+    expect($image->extension)->toBe('jpg');
 
     $image2 = imageFile('png');
-    expect($image2->guessExtension())->toBe('png');
+    expect($image2->extension)->toBe('png');
 
     $invalid = new DownloadedFile('invalid/path/to/file.txt');
-    expect($invalid->guessExtension())->toBeNull();
+    expect($invalid->extension)->toBeNull();
 });
 
 test('getMimeType method', function () {
     $emptyFile = tempFile();
-    expect($emptyFile->getMimeType())->toBe('application/x-empty');
+    expect($emptyFile->mimeType)->toBe('application/x-empty');
 
     $file = tempFile('file content');
-    expect($file->getMimeType())->toBe('text/plain');
+    expect($file->mimeType)->toBe('text/plain');
 
     $image = imageFile();
-    expect($image->getMimeType())->toBe('image/jpeg');
+    expect($image->mimeType)->toBe('image/jpeg');
 
     $image2 = imageFile('png');
-    expect($image2->getMimeType())->toBe('image/png');
+    expect($image2->mimeType)->toBe('image/png');
 
     $invalid = new DownloadedFile('invalid/path/to/file.txt');
-    expect($invalid->getMimeType())->toBeNull();
+    expect($invalid->mimeType)->toBeNull();
 });
 
 test('path', function () {
-    $filePath = tempFile()->path();
+    $filePath = tempFile()->path;
     expect($filePath)->toBeString()
         ->and($filePath)->not->toBeEmpty();
 
     $image = imageFile();
-    expect($image->path())->toBeString();
+    expect($image->path)->toBeString();
 
     $invalid = new DownloadedFile('invalid/path/to/file.txt');
-    expect($invalid->path())->toBe('invalid/path/to/file.txt');
+    expect($invalid->path)->toBe('invalid/path/to/file.txt');
 });
 
 test('dimensions', function () {
     $file = tempFile();
-    expect($file->dimensions())->toBeFalse();
+    expect($file->dimensions)->toBeNull();
 
     $image = imageFile();
-    $dimensions = $image->dimensions();
+    $dimensions = $image->dimensions;
     expect($dimensions)->toBeArray()
-        ->and($dimensions[0])->toBe(10)
-        ->and($dimensions[1])->toBe(10);
+        ->and($dimensions['width'])->toBe(10)
+        ->and($dimensions['height'])->toBe(10);
 
     $invalid = new DownloadedFile('invalid/path/to/file.txt');
-    expect($invalid->dimensions())->toBeFalse();
+    expect($invalid->dimensions)->toBeNull();
 });

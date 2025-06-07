@@ -14,7 +14,7 @@ it('downloads a file and returns a temporary file path', function () {
         $url => Http::response($content, 200),
     ]);
 
-    $tempFile = (new TempFileDownloadAction)->handle($url)->path();
+    $tempFile = (new TempFileDownloadAction)->handle($url)->path;
 
     expect($tempFile)->toBeString()
         ->and($tempFile)->toStartWith(sys_get_temp_dir())
@@ -52,7 +52,7 @@ it('respects the custom user agent', function () {
         $url => Http::response('File content'),
     ]);
 
-    $tempFile = (new TempFileDownloadAction)->handle($url)->path();
+    $tempFile = (new TempFileDownloadAction)->handle($url)->path;
 
     expect(file_exists($tempFile))->toBeTrue();
 
@@ -72,7 +72,7 @@ it('uses no user agent when set to false', function () {
         $url => Http::response('File content'),
     ]);
 
-    $tempFile = (new TempFileDownloadAction)->handle($url)->path();
+    $tempFile = (new TempFileDownloadAction)->handle($url)->path;
 
     expect(file_exists($tempFile))->toBeTrue();
 
@@ -92,7 +92,7 @@ it('uses a custom temporary file prefix', function () {
         $url => Http::response('File content'),
     ]);
 
-    $tempFile = (new TempFileDownloadAction)->handle($url)->path();
+    $tempFile = (new TempFileDownloadAction)->handle($url)->path;
 
     expect(basename($tempFile))->toStartWith('custom-prefix');
 
@@ -107,7 +107,7 @@ it('handles large file downloads', function () {
         $url => Http::response($largeContent, 200),
     ]);
 
-    $tempFile = (new TempFileDownloadAction)->handle($url)->path();
+    $tempFile = (new TempFileDownloadAction)->handle($url)->path;
 
     expect(filesize($tempFile))->toBe(strlen($largeContent));
 })->skip();
