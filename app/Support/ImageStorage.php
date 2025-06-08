@@ -6,9 +6,9 @@ use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Storage;
 use ValueError;
 
-class ImageDisk
+class ImageStorage
 {
-    public static function original(): Filesystem
+    public static function originalDisk(): Filesystem
     {
         $disk = config('images.disk.original');
 
@@ -19,7 +19,7 @@ class ImageDisk
         return Storage::disk($disk);
     }
 
-    public static function variant(): Filesystem
+    public static function variantDisk(): Filesystem
     {
         $disk = config('images.disk.variant');
 
@@ -33,13 +33,13 @@ class ImageDisk
     /**
      * Determine whether given disk name is configured storage disk.
      *
-     * @param string $name
+     * @param string $disk
      * @return bool
      */
-    public static function isConfigured(string $name): bool
+    public static function isConfigured(string $disk): bool
     {
         try {
-            Storage::disk($name);
+            Storage::disk($disk);
 
             return true;
         } catch (\Throwable $exception) {
