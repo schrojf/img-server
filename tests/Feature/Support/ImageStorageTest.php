@@ -4,6 +4,11 @@ use App\Support\ImageStorage;
 use Illuminate\Contracts\Filesystem\Filesystem;
 
 test('disk methods', function () {
+    expect(ImageStorage::original())->toBe(config('images.disk.original'))
+        ->and(ImageStorage::variant())->toBe(config('images.disk.variant'));
+});
+
+test('storage methods', function () {
     expect(ImageStorage::originalDisk())->toBeInstanceOf(Filesystem::class)
         ->and(ImageStorage::variantDisk())->toBeInstanceOf(Filesystem::class);
 });

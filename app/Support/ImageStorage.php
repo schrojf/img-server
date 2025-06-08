@@ -8,7 +8,7 @@ use ValueError;
 
 class ImageStorage
 {
-    public static function originalDisk(): Filesystem
+    public static function original(): string
     {
         $disk = config('images.disk.original');
 
@@ -16,10 +16,15 @@ class ImageStorage
             throw new ValueError('Config "images.disk.original" must be a string.');
         }
 
-        return Storage::disk($disk);
+        return $disk;
     }
 
-    public static function variantDisk(): Filesystem
+    public static function originalDisk(): Filesystem
+    {
+        return Storage::disk(static::original());
+    }
+
+    public static function variant(): string
     {
         $disk = config('images.disk.variant');
 
@@ -27,7 +32,12 @@ class ImageStorage
             throw new ValueError('Config "images.disk.variant" must be a string.');
         }
 
-        return Storage::disk($disk);
+        return $disk;
+    }
+
+    public static function variantDisk(): Filesystem
+    {
+        return Storage::disk(static::variant());
     }
 
     /**
