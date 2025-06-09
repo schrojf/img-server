@@ -76,7 +76,7 @@ class DownloadImageAction
             throw new DownloadImageActionException("Failed to store image file '{$fileName}' to disk '{$diskName}'.");
         }
 
-        // TODO: Delete temporary file from $tmpFile->path here.
+        @unlink($tmpFile->path);
 
         return $file;
     }

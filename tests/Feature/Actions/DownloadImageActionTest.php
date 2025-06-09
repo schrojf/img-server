@@ -154,6 +154,8 @@ test('saves image using mocked file and filename actions', function () {
 
     $downloadImageAction = new DownloadImageAction($downloadFileActionMock, $nameActionMock);
 
+    $fileSize = $filesystem->size($tmpFilePath);
+
     $file = $downloadImageAction->handle($imageModel);
 
     $imageModel->refresh();
@@ -162,9 +164,43 @@ test('saves image using mocked file and filename actions', function () {
         'disk' => ImageStorage::original(),
         'file_name' => "saved/original_filename_{$imageModel->id}.jpg",
         'mime_type' => 'image/jpeg',
-        'size' => $filesystem->size($tmpFilePath),
+        'size' => $fileSize,
     ])
         ->and($imageModel->last_error)->toBeNull();
 
     Storage::disk(ImageStorage::original())->assertExists($file->fileName);
+});
+
+test('deletes temporary file after saving image', function () {
+    $url = 'https://example.org/image.jpg';
+    $imageModel = image($url);
+    Storage::fake(ImageStorage::original());
+
+    // Create a real temporary file
+    $tmpPath = tempnam(sys_get_temp_dir(), 'test-img');
+    file_put_contents($tmpPath, UploadedFile::fake()->image('image.jpg')->getContent());
+
+    // Assert temp file exists
+    expect(file_exists($tmpPath))->toBeTrue();
+
+    $downloadFileActionMock = mock(TempFileDownloadAction::class)
+        ->shouldReceive('handle')
+        ->once()
+        ->with($url)
+        ->andReturn(new DownloadedFile($tmpPath))
+        ->getMock();
+
+    $fileName = 'custom_random_name';
+    $nameActionMock = mock(GenerateRandomHashFileNameAction::class)
+        ->shouldReceive('handle')
+        ->once()
+        ->withNoArgs()
+        ->andReturn($fileName)
+        ->getMock();
+
+    $downloadImageAction = new DownloadImageAction($downloadFileActionMock, $nameActionMock);
+
+    $file = $downloadImageAction->handle($imageModel);
+
+    expect(file_exists($tmpPath))->toBeFalse();
 });
