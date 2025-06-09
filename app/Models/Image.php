@@ -11,5 +11,10 @@ class Image extends Model
     protected $fillable = [
         'uid',
         'original_url',
+        'image_file',
+    ];
+
+    protected $casts = [
+        'image_file' => 'array',
     ];
 }

@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('uid')->unique();
             $table->text('original_url');
+            $table->json('image_file')->nullable();
             $table->timestamps();
         });
     }
