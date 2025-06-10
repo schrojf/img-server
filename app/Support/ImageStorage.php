@@ -10,13 +10,7 @@ class ImageStorage
 {
     public static function original(): string
     {
-        $disk = config('images.disk.original');
-
-        if (! is_string($disk) || empty($disk)) {
-            throw new ValueError('Config "images.disk.original" must be a string.');
-        }
-
-        return $disk;
+        return static::diskName('original');
     }
 
     public static function originalDisk(): Filesystem
@@ -26,18 +20,23 @@ class ImageStorage
 
     public static function variant(): string
     {
-        $disk = config('images.disk.variant');
-
-        if (! is_string($disk) || empty($disk)) {
-            throw new ValueError('Config "images.disk.variant" must be a string.');
-        }
-
-        return $disk;
+        return static::diskName('variant');
     }
 
     public static function variantDisk(): Filesystem
     {
         return Storage::disk(static::variant());
+    }
+
+    protected static function diskName(string $config): string
+    {
+        $disk = config("images.disk.{$config}");
+
+        if (! is_string($disk) || empty($disk)) {
+            throw new ValueError("Config \"images.disk.{$config}\" must be a string.");
+        }
+
+        return $disk;
     }
 
     /**
