@@ -40,6 +40,7 @@ readonly class DownloadedFile
                 dimensions: null,
                 error: 'Downloaded file is not a valid file.'
             );
+
             return;
         }
 
@@ -52,6 +53,7 @@ readonly class DownloadedFile
                 dimensions: null,
                 error: 'Downloaded file is too large.'
             );
+
             return;
         }
 
@@ -67,6 +69,7 @@ readonly class DownloadedFile
                 dimensions: null,
                 error: 'Downloaded file is not a valid image.'
             );
+
             return;
         }
 
@@ -81,6 +84,7 @@ readonly class DownloadedFile
                 dimensions: null,
                 error: 'Downloaded file is not a valid image.'
             );
+
             return;
         }
 
@@ -169,8 +173,6 @@ readonly class DownloadedFile
 
     /**
      * Get the dimensions of the image (if applicable).
-     *
-     * @return array|null
      */
     protected function getDimensions(string $filePath): ?array
     {

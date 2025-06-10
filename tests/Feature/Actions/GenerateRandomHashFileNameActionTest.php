@@ -3,7 +3,7 @@
 use App\Actions\GenerateRandomHashFileNameAction;
 
 test('random file name path', function () {
-    $generator = new GenerateRandomHashFileNameAction();
+    $generator = new GenerateRandomHashFileNameAction;
 
     expect($generator->handle())->toBeString()
         ->and($generator->handle())->toHaveLength(40 + (3 * 3))

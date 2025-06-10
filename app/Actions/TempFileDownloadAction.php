@@ -12,8 +12,6 @@ class TempFileDownloadAction
     public static string|false $userAgent = 'ImageServer Downloader';
 
     /**
-     * @param string $url
-     * @return string
      * @throws \Illuminate\Http\Client\RequestException
      */
     public function handle(string $url): DownloadedFile

@@ -34,12 +34,12 @@ it('throws an exception if connection fails', function () {
     $url = 'https://example.org/file.bin';
 
     Http::fake([
-        $url => Http::response(null, 500) // Server error to simulate a failure
+        $url => Http::response(null, 500), // Server error to simulate a failure
     ]);
 
     $downloader = new TempFileDownloadAction;
 
-    expect(fn() => $downloader->handle($url))
+    expect(fn () => $downloader->handle($url))
         ->toThrow(RequestException::class);
 });
 
@@ -79,7 +79,7 @@ it('uses no user agent when set to false', function () {
     unlink($tempFile);
 
     Http::assertSent(function (Request $request) {
-        return $request->header('User-Agent')[0] === "";
+        return $request->header('User-Agent')[0] === '';
     });
 });
 
@@ -125,7 +125,7 @@ it('cleans up temporary file on exception', function () {
         // Exception caught, now check if the temporary file was cleaned up
     }
 
-    $tempFiles = glob(sys_get_temp_dir() . '/image-server*');
+    $tempFiles = glob(sys_get_temp_dir().'/image-server*');
     expect($tempFiles)->toBeEmpty();
 })->skip();
 
@@ -141,6 +141,7 @@ it('respects maximum execution time', function () {
     Http::fake([
         $url => function () use ($content, $maxExecutionTime) {
             sleep($maxExecutionTime + 1);
+
             return Http::response($content, 200);
         },
     ]);

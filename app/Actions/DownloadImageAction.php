@@ -22,7 +22,7 @@ class DownloadImageAction
     {
         if (! $image->exists || empty($image->getKey())) {
             throw DownloadImageActionException::make(
-                "Image model is not persisted in the database.",
+                'Image model is not persisted in the database.',
                 context: ['image_id' => $image->getKey()]
             );
         }
@@ -48,7 +48,7 @@ class DownloadImageAction
             $tmpFile = $this->tempFileDownloadAction->handle($image->original_url);
         } catch (RequestException $e) {
             throw DownloadImageActionException::make(
-                "Failed to download image from URL [{$image->original_url}]: " . $e->getMessage(),
+                "Failed to download image from URL [{$image->original_url}]: ".$e->getMessage(),
                 $e->getCode(),
                 $e,
                 [
@@ -61,7 +61,7 @@ class DownloadImageAction
 
         if (! $tmpFile->isValidImage) {
             throw DownloadImageActionException::make(
-                "Downloaded file is not a valid image for image [ID: {$image->getKey()}]. Reason: " . ($tmpFile->firstError ?? 'Unknown error'),
+                "Downloaded file is not a valid image for image [ID: {$image->getKey()}]. Reason: ".($tmpFile->firstError ?? 'Unknown error'),
                 context: [
                     'image_id' => $image->getKey(),
                     'original_url' => $image->original_url,
@@ -69,7 +69,7 @@ class DownloadImageAction
             );
         }
 
-        $fileName = $this->randomHashFileNameAction->handle() . '_' . $image->id . '.' . $tmpFile->extension;
+        $fileName = $this->randomHashFileNameAction->handle().'_'.$image->id.'.'.$tmpFile->extension;
 
         $diskName = ImageStorage::original();
         $disk = ImageStorage::originalDisk();
@@ -95,7 +95,7 @@ class DownloadImageAction
         $image->image_file = $file->toArray();
         $image->save();
 
-        if (false === $disk->putFileAs($tmpFile->path, $fileName)) {
+        if ($disk->putFileAs($tmpFile->path, $fileName) === false) {
             $image->image_file = null;
             $image->save();
 

@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
 use function Pest\Laravel\get;
 
 beforeEach(function () {

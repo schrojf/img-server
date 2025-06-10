@@ -8,7 +8,7 @@ class DownloadImageActionException extends Exception
 {
     protected array $context = [];
 
-    public function __construct(string $message = "", int $code = 0, ?Exception $previous = null, array $context = [])
+    public function __construct(string $message = '', int $code = 0, ?Exception $previous = null, array $context = [])
     {
         parent::__construct($message, $code, $previous);
         $this->context = $context;

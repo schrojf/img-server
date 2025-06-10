@@ -15,7 +15,7 @@ class ImageApiController extends Controller
     public function index(): JsonResponse
     {
         return response()->json([
-            'total' =>  Image::count(),
+            'total' => Image::count(),
         ]);
     }
 

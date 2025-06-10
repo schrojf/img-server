@@ -2,7 +2,6 @@
 
 use App\Jobs\DownloadImageJob;
 use App\Models\Image;
-use App\Models\User;
 use Illuminate\Support\Facades\Queue;
 
 test('unauthorized index is rejected', function () {

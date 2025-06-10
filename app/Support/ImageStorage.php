@@ -41,9 +41,6 @@ class ImageStorage
 
     /**
      * Determine whether given disk name is configured storage disk.
-     *
-     * @param string $disk
-     * @return bool
      */
     public static function isConfigured(string $disk): bool
     {

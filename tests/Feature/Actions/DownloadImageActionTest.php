@@ -62,7 +62,7 @@ test('downloads and saves image from valid URL into storage', function () {
 
 test('throws if image model is not persisted', function () {
     $action = new DownloadImageAction(new TempFileDownloadAction, new GenerateRandomHashFileNameAction);
-    $action->handle(new Image());
+    $action->handle(new Image);
 })->throws(
     DownloadImageActionException::class,
     'Image model is not persisted in the database.',
@@ -81,7 +81,7 @@ test('throws if image model already has an image_file', function () {
 
     $action = new DownloadImageAction(new TempFileDownloadAction, new GenerateRandomHashFileNameAction);
 
-    expect(fn() => $action->handle($imageModel))->toThrow(
+    expect(fn () => $action->handle($imageModel))->toThrow(
         DownloadImageActionException::class,
         "Image [ID: {$imageModel->id}] already has an image_file assigned."
     );
@@ -93,7 +93,7 @@ test('throws if remote image URL returns server error', function () {
 
     $action = new DownloadImageAction(new TempFileDownloadAction, new GenerateRandomHashFileNameAction);
 
-    expect(fn() => $action->handle($imageModel))->toThrow(
+    expect(fn () => $action->handle($imageModel))->toThrow(
         DownloadImageActionException::class,
         "Failed to download image from URL [{$imageModel->original_url}]: ",
     );
@@ -105,7 +105,7 @@ test('throws if downloaded file is not a valid image', function () {
 
     $action = new DownloadImageAction(new TempFileDownloadAction, new GenerateRandomHashFileNameAction);
 
-    expect(fn() => $action->handle($imageModel))->toThrow(
+    expect(fn () => $action->handle($imageModel))->toThrow(
         DownloadImageActionException::class,
         "Downloaded file is not a valid image for image [ID: {$imageModel->id}]. Reason: Downloaded file is not a valid image.",
     );
@@ -127,7 +127,7 @@ test('throws if generated file name already exists in storage', function () {
 
     $filesystem->put("saved/original_filename_{$imageModel->id}.jpg", 'content');
 
-    expect(fn() => $downloadImageAction->handle($imageModel))->toThrow(
+    expect(fn () => $downloadImageAction->handle($imageModel))->toThrow(
         DownloadImageActionException::class,
         "File collision: Generated file name 'saved/original_filename_{$imageModel->id}.jpg' already exists on disk 'downloaded'.",
     );
