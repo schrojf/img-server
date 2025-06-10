@@ -74,7 +74,9 @@ test('throws if image model already has an image_file', function () {
         'disk',
         'image.jpg',
         'image/jpeg',
-        0
+        0,
+        0,
+        0,
     )]);
 
     $action = new DownloadImageAction(new TempFileDownloadAction, new GenerateRandomHashFileNameAction);

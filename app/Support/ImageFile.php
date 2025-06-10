@@ -12,6 +12,8 @@ readonly class ImageFile
         public string $fileName,
         public string $mimeType,
         public int $size,
+        public int $width,
+        public int $height,
     ) {}
 
     public function stillExists(): bool
@@ -26,6 +28,8 @@ readonly class ImageFile
             'file_name' => $this->fileName,
             'mime_type' => $this->mimeType,
             'size' => $this->size,
+            'width' => $this->width,
+            'height' => $this->height,
         ];
     }
 
