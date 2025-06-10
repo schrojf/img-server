@@ -1,7 +1,9 @@
 <?php
 
+use App\Jobs\DownloadImageJob;
 use App\Models\Image;
 use App\Models\User;
+use Illuminate\Support\Facades\Queue;
 
 test('unauthorized index is rejected', function () {
     $response = $this->getJson('/api/images');
@@ -46,6 +48,10 @@ test('only authorized user can create image', function () {
 });
 
 test('only one image was created', function () {
+    Queue::fake([
+        DownloadImageJob::class,
+    ]);
+
     $user = user();
 
     $response = $this
@@ -73,4 +79,22 @@ test('only one image was created', function () {
         ]);
 
     expect(Image::all()->count())->toBe(1);
+
+    Queue::assertPushed(DownloadImageJob::class, 1);
+});
+
+test('image download job was dispatched', function () {
+    Queue::fake([
+        DownloadImageJob::class,
+    ]);
+
+    $response = $this
+        ->actingAs(user())
+        ->postJson('/api/images', ['url' => 'https://example.com/image_job.webp']);
+
+    $response->assertStatus(201);
+
+    Queue::assertPushed(DownloadImageJob::class, function (DownloadImageJob $job) {
+        return Image::findOrFail($job->imageId)->original_url === 'https://example.com/image_job.webp';
+    });
 });

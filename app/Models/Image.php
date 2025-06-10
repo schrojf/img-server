@@ -12,6 +12,7 @@ class Image extends Model
         'uid',
         'original_url',
         'image_file',
+        'last_error',
     ];
 
     protected $casts = [
