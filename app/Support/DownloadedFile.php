@@ -23,44 +23,92 @@ readonly class DownloadedFile
 
     public function __construct(public string $path)
     {
-        if (($this->isFile = is_file($this->path)) === false || ($fileSize = filesize($this->path)) === false) {
-            $this->isValidImage = false;
-            $this->mimeType = null;
-            $this->extension = null;
-            $this->size = null;
-            $this->dimensions = null;
-            $this->firstError = 'Downloaded file is not a valid file.';
+        $this->initialize();
+    }
 
+    protected function initialize(): void
+    {
+        $isFile = is_file($this->path);
+        $size = $isFile ? filesize($this->path) : false;
+
+        if (! $isFile || $size === false) {
+            $this->setFailure(
+                isFile: false,
+                size: null,
+                mimeType: null,
+                extension: null,
+                dimensions: null,
+                error: 'Downloaded file is not a valid file.'
+            );
             return;
         }
 
-        if ($this->hasInvalidFileSize($this->size = $fileSize)) {
-            $this->isValidImage = false;
-            $this->mimeType = null;
-            $this->extension = null;
-            $this->dimensions = null;
-            $this->firstError = 'Downloaded file is too large.';
-
+        if ($this->hasInvalidFileSize($size)) {
+            $this->setFailure(
+                isFile: true,
+                size: $size,
+                mimeType: null,
+                extension: null,
+                dimensions: null,
+                error: 'Downloaded file is too large.'
+            );
             return;
         }
 
-        $this->mimeType = $this->getMimeType($this->path);
-        $this->extension = $this->guessExtension($this->mimeType);
+        $mimeType = $this->getMimeType($this->path);
+        $extension = $this->guessExtension($mimeType);
 
-        if (($this->isValidImage = $this->hasAllowedExtension($this->extension)) === false) {
-            $this->dimensions = null;
-            $this->firstError = 'Downloaded file is not a valid image.';
-
+        if (! $this->hasAllowedExtension($extension)) {
+            $this->setFailure(
+                isFile: true,
+                size: $size,
+                mimeType: $mimeType,
+                extension: $extension,
+                dimensions: null,
+                error: 'Downloaded file is not a valid image.'
+            );
             return;
         }
 
-        if (($this->dimensions = $this->getDimensions($this->path)) === null) {
-            $this->firstError = 'Downloaded file is not a valid image.';
+        $dimensions = $this->getDimensions($this->path);
 
+        if ($dimensions === null) {
+            $this->setFailure(
+                isFile: true,
+                size: $size,
+                mimeType: $mimeType,
+                extension: $extension,
+                dimensions: null,
+                error: 'Downloaded file is not a valid image.'
+            );
             return;
         }
 
+        // All good — set all properties as valid
+        $this->isFile = true;
+        $this->size = $size;
+        $this->mimeType = $mimeType;
+        $this->extension = $extension;
+        $this->dimensions = $dimensions;
+        $this->isValidImage = true;
         $this->firstError = null;
+    }
+
+    protected function setFailure(
+        bool $isFile,
+        ?int $size,
+        ?string $mimeType,
+        ?string $extension,
+        ?array $dimensions,
+        string $error
+    ): void {
+        $this->isFile = $isFile;
+        $this->size = $size;
+        $this->mimeType = $mimeType;
+        $this->extension = $extension;
+        $this->dimensions = $dimensions;
+        $this->isValidImage = false;
+        $this->firstError = $error;
     }
 
     protected function hasInvalidFileSize(int $size): bool
@@ -114,9 +162,9 @@ readonly class DownloadedFile
             return false;
         }
 
-        $allowedExtensions = Config::get('images.downloads.allowedExtensions');
+        $allowed = Config::get('images.downloads.allowedExtensions', []);
 
-        return in_array($extension, $allowedExtensions);
+        return in_array($extension, $allowed, true);
     }
 
     /**
@@ -126,11 +174,9 @@ readonly class DownloadedFile
      */
     protected function getDimensions(string $filePath): ?array
     {
-        if (($dimensions = @getimagesize($filePath)) === false) {
-            return null;
-        }
+        $dimensions = @getimagesize($filePath);
 
-        return [
+        return $dimensions === false ? null : [
             'width' => $dimensions[0],
             'height' => $dimensions[1],
         ];
