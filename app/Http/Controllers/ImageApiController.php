@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\DownloadImageJob;
+use App\Models\Enums\ImageStatus;
 use App\Models\Image;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -33,6 +34,7 @@ class ImageApiController extends Controller
         $image = Image::firstOrCreate([
             'uid' => $uid,
         ], [
+            'status' => ImageStatus::QUEUED,
             'original_url' => $data['url'],
         ]);
 
@@ -41,6 +43,7 @@ class ImageApiController extends Controller
         }
 
         return response()->json([
+            'status' => $image->status,
             'image' => $image,
             'is_new' => $image->wasRecentlyCreated,
         ], $image->wasRecentlyCreated ? 201 : 200);

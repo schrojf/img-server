@@ -2,7 +2,9 @@
 
 use App\Actions\DownloadImageAction;
 use App\Exceptions\DownloadImageActionException;
+use App\Exceptions\InvalidImageStateException;
 use App\Jobs\DownloadImageJob;
+use App\Models\Enums\ImageStatus;
 use App\Models\Image;
 use App\Support\ImageFile;
 use Illuminate\Support\Facades\Log;
@@ -21,6 +23,8 @@ test('log was called when no image was found', function () {
 
 test('action with image model was called', function () {
     $image = image();
+    $image->update(['status' => ImageStatus::QUEUED]);
+
     $job = new DownloadImageJob($image->id);
 
     $m = mock(DownloadImageAction::class)
@@ -33,10 +37,15 @@ test('action with image model was called', function () {
         ->getMock();
 
     $job->handle($m);
+
+    expect($image->last_error)->toBeNull()
+        ->and($image->status)->toBe(ImageStatus::QUEUED);
 });
 
 test('exception will be caught and save last error', function () {
     $image = image();
+    $image->update(['status' => ImageStatus::QUEUED]);
+
     $job = new DownloadImageJob($image->id);
 
     $m = mock(DownloadImageAction::class)
@@ -52,5 +61,29 @@ test('exception will be caught and save last error', function () {
 
     $job->handle($m);
 
-    expect($image->fresh()->last_error)->toBe('Test error message.');
+    $image->refresh();
+
+    expect($image->last_error)->toBe('Test error message.')
+        ->and($image->status)->toBe(ImageStatus::FAILED);
+});
+
+test('invalid state transition', function () {
+    $image = image();
+    $job = new DownloadImageJob($image->id);
+    $actionMock = mock(DownloadImageAction::class)->makePartial();
+
+    Log::spy();
+
+    expect(fn () => $job->handle($actionMock))->toThrow(
+        InvalidImageStateException::class,
+        "Invalid image state: expected 'queued', got 'expired'",
+    );
+
+    Log::shouldHaveReceived('error')
+        ->once()
+        ->with('Invalid image state transition attempted.', [
+            'image_id' => $image->id,
+            'current_status' => ImageStatus::EXPIRED->value,
+            'expected_status' => ImageStatus::QUEUED->value,
+        ]);
 });

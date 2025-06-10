@@ -4,9 +4,12 @@ namespace App\Jobs;
 
 use App\Actions\DownloadImageAction;
 use App\Exceptions\DownloadImageActionException;
+use App\Exceptions\InvalidImageStateException;
+use App\Models\Enums\ImageStatus;
 use App\Models\Image;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class DownloadImageJob implements ShouldQueue
@@ -25,19 +28,58 @@ class DownloadImageJob implements ShouldQueue
      */
     public function handle(DownloadImageAction $downloadImageAction): void
     {
-        if (is_null($image = Image::find($this->imageId))) {
+        $image = DB::transaction(function () {
+            if (is_null($image = Image::lockForUpdate()->find($this->imageId))) {
+                return null;
+            }
+
+            if ($image->status !== ImageStatus::QUEUED) {
+                Log::error('Invalid image state transition attempted.', [
+                    'image_id' => $this->imageId,
+                    'current_status' => $image->status->value,
+                    'expected_status' => ImageStatus::QUEUED->value,
+                ]);
+
+                throw InvalidImageStateException::fromInvalidStateTransition($image->status, ImageStatus::QUEUED);
+            }
+
+            $result = $image->update([
+                'status' => ImageStatus::PROCESSING,
+            ]);
+
+            return $result ? $image : null;
+        });
+
+        if (is_null($image)) {
             Log::warning("Image with id {$this->imageId} not found.");
 
             return;
         }
 
+        Log::info("Starting DownloadImageJob for image ID {$this->imageId}");
+
         try {
             $imageFile = $downloadImageAction->handle($image);
         } catch (DownloadImageActionException $exception) {
-            $image->last_error = $exception->getMessage();
-            $image->save();
-
             Log::error($exception->getMessage(), $exception->context());
+
+            DB::transaction(function () use ($exception) {
+                $image = Image::lockForUpdate()->findOrFail($this->imageId);
+
+                if ($image->status !== ImageStatus::PROCESSING) {
+                    Log::error('Invalid image state transition attempted.', [
+                        'image_id' => $this->imageId,
+                        'current_status' => $image->status->value,
+                        'expected_status' => ImageStatus::PROCESSING->value,
+                    ]);
+
+                    throw InvalidImageStateException::fromInvalidStateTransition($image->status, ImageStatus::PROCESSING);
+                }
+
+                $image->status = ImageStatus::FAILED;
+                $image->last_error = $exception->getMessage();
+                $image->save();
+            });
         }
     }
 }

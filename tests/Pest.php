@@ -51,6 +51,7 @@ function image(?string $url = null): \App\Models\Image
     $url = $url ?? 'https://example.com/image'.uniqid().'.jpg';
 
     return \App\Models\Image::create([
+        'status' => \App\Models\Enums\ImageStatus::EXPIRED,
         'uid' => hash('xxh128', $url),
         'original_url' => $url,
     ]);
