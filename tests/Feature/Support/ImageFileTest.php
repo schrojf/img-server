@@ -3,7 +3,14 @@
 namespace Tests\Feature\Storage;
 
 use App\Support\ImageFile;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Facades\Storage;
+
+test('interface', function () {
+    $file = new ImageFile('local', 'file.bin', 'unknown', 0, 0, 0);
+
+    expect($file)->toBeInstanceOf(Arrayable::class);
+});
 
 test('invalid file', function () {
     Storage::fake('local');
@@ -62,4 +69,13 @@ test('toArray method', function () {
         'width' => 30,
         'height' => 20,
     ]);
+});
+
+test('full path', function () {
+    $disk = Storage::fake('local');
+    $disk->put('a/b/c/d/file.bin', 'content');
+
+    $file = new ImageFile('local', 'a/b/c/d/file.bin', 'unknown', 0, 0, 0);
+
+    expect($file->fullPath())->toBe($disk->path('a/b/c/d/file.bin'));
 });

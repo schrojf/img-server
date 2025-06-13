@@ -2,10 +2,9 @@
 
 namespace App\Support;
 
-use Illuminate\Contracts\Filesystem\Filesystem as FilesystemContract;
-use Illuminate\Support\Facades\Storage;
+use App\Models\Image;
 
-readonly class ImageFile
+final readonly class ImageFile extends File
 {
     public function __construct(
         public string $disk,
@@ -16,9 +15,21 @@ readonly class ImageFile
         public int $height,
     ) {}
 
-    public function stillExists(): bool
+    public static function fromModel(Image $image): ImageFile
     {
-        return Storage::disk($this->disk)->exists($this->fileName);
+        return self::fromArray($image->image_file);
+    }
+
+    public static function fromArray(array $data): ImageFile
+    {
+        return new self(
+            $data['disk'],
+            $data['file_name'],
+            $data['mime_type'],
+            $data['size'],
+            $data['width'],
+            $data['height'],
+        );
     }
 
     public function toArray(): array
@@ -31,24 +42,5 @@ readonly class ImageFile
             'width' => $this->width,
             'height' => $this->height,
         ];
-    }
-
-    public function url(): ?string
-    {
-        $storage = Storage::disk($this->disk);
-
-        if (! $storage->exists($this->fileName)) {
-            return null;
-        }
-
-        if ($storage->getVisibility($this->fileName) == FilesystemContract::VISIBILITY_PRIVATE) {
-            return null;
-        }
-
-        if (! isset($storage->getConfig()['url'])) {
-            return null;
-        }
-
-        return Storage::disk($this->disk)->url($this->fileName);
     }
 }
