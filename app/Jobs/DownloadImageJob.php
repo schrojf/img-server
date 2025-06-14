@@ -44,7 +44,7 @@ class DownloadImageJob implements ShouldQueue
             }
 
             $result = $image->update([
-                'status' => ImageStatus::PROCESSING,
+                'status' => ImageStatus::DOWNLOADING_IMAGE,
             ]);
 
             return $result ? $image : null;
@@ -60,20 +60,38 @@ class DownloadImageJob implements ShouldQueue
 
         try {
             $imageFile = $downloadImageAction->handle($image);
+
+            DB::transaction(function () use ($imageFile) {
+                $image = Image::lockForUpdate()->findOrFail($this->imageId);
+
+                if ($image->status !== ImageStatus::DOWNLOADING_IMAGE) {
+                    Log::error('Invalid image state transition attempted.', [
+                        'image_id' => $this->imageId,
+                        'current_status' => $image->status->value,
+                        'expected_status' => ImageStatus::DOWNLOADING_IMAGE->value,
+                    ]);
+
+                    throw InvalidImageStateException::fromInvalidStateTransition($image->status, ImageStatus::DOWNLOADING_IMAGE);
+                }
+
+                $image->image_file = $imageFile->toArray();
+                $image->status = ImageStatus::IMAGE_DOWNLOADED;
+                $image->save();
+            });
         } catch (DownloadImageActionException $exception) {
             Log::error($exception->getMessage(), $exception->context());
 
             DB::transaction(function () use ($exception) {
                 $image = Image::lockForUpdate()->findOrFail($this->imageId);
 
-                if ($image->status !== ImageStatus::PROCESSING) {
+                if ($image->status !== ImageStatus::DOWNLOADING_IMAGE) {
                     Log::error('Invalid image state transition attempted.', [
                         'image_id' => $this->imageId,
                         'current_status' => $image->status->value,
-                        'expected_status' => ImageStatus::PROCESSING->value,
+                        'expected_status' => ImageStatus::DOWNLOADING_IMAGE->value,
                     ]);
 
-                    throw InvalidImageStateException::fromInvalidStateTransition($image->status, ImageStatus::PROCESSING);
+                    throw InvalidImageStateException::fromInvalidStateTransition($image->status, ImageStatus::DOWNLOADING_IMAGE);
                 }
 
                 $image->status = ImageStatus::FAILED;

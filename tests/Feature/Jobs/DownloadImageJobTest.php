@@ -38,8 +38,11 @@ test('action with image model was called', function () {
 
     $job->handle($m);
 
+    $image->refresh();
+
     expect($image->last_error)->toBeNull()
         ->and($image->status)->toBe(ImageStatus::QUEUED);
+        ->and($image->status)->toBe(ImageStatus::IMAGE_DOWNLOADED);
 });
 
 test('exception will be caught and save last error', function () {

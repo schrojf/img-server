@@ -7,6 +7,9 @@ enum ImageStatus: string
     case QUEUED = 'queued';
 
     case PROCESSING = 'processing';
+    case DOWNLOADING_IMAGE = 'downloading_image';
+
+    case IMAGE_DOWNLOADED = 'image_downloaded';
 
     case DONE = 'done';
 
