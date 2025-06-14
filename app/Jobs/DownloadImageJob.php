@@ -78,6 +78,8 @@ class DownloadImageJob implements ShouldQueue
                 $image->status = ImageStatus::IMAGE_DOWNLOADED;
                 $image->save();
             });
+
+            dispatch(new GenerateImageVariantsJob($image->id));
         } catch (DownloadImageActionException $exception) {
             Log::error($exception->getMessage(), $exception->context());
 

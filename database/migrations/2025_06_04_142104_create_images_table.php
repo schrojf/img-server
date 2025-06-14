@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('uid')->unique();
             $table->text('original_url');
             $table->json('image_file')->nullable();
+            $table->json('variant_files')->nullable();
             $table->text('last_error')->nullable();
             $table->timestamps();
         });

@@ -6,10 +6,11 @@ enum ImageStatus: string
 {
     case QUEUED = 'queued';
 
-    case PROCESSING = 'processing';
     case DOWNLOADING_IMAGE = 'downloading_image';
 
     case IMAGE_DOWNLOADED = 'image_downloaded';
+
+    case GENERATING_VARIANTS = 'generating_variants';
 
     case DONE = 'done';
 
@@ -17,15 +18,9 @@ enum ImageStatus: string
 
     case EXPIRED = 'expired';
 
-    // case DOWNLOAD_QUEUED = 'download_queued';
-
-    // case DOWNLOAD_PENDING = 'download_pending';
-
-    // case DOWNLOAD_FAILED = 'download_failed';
-
     public function isProcessing(): bool
     {
-        return in_array($this, [self::QUEUED, self::PROCESSING]);
+        return in_array($this, [self::QUEUED, self::DOWNLOADING_IMAGE, self::IMAGE_DOWNLOADED, self::GENERATING_VARIANTS]);
     }
 
     public function isFinal(): bool

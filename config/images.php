@@ -12,4 +12,8 @@ return [
         'maxFileSize' => 30_000_000,
     ],
 
+    'driver' => env('INTERVENTION_IMAGE_DRIVE', 'Gd'),
+
+    'avif' => env('AVIF_ENABLED', false),
+
 ];
