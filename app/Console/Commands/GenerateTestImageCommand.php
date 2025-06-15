@@ -40,7 +40,7 @@ class GenerateTestImageCommand extends Command
     /**
      * Execute the console command.
      */
-    public function handle(): int
+    public function handle(GenerateVariantsAction $generateVariantsAction): int
     {
         if (App::environment('production')) {
             $this->warn('❌ This command is not allowed in the production environment.');
@@ -73,11 +73,10 @@ class GenerateTestImageCommand extends Command
         ]);
 
         if (false) {
-            $variantGenerator = new GenerateVariantsAction;
-            $result = $variantGenerator->handle($image);
+            $result = $generateVariantsAction->handle($image);
         } else {
             $variantGeneratorJob = new GenerateImageVariantsJob($image->id);
-            $variantGeneratorJob->handle(new GenerateVariantsAction);
+            $variantGeneratorJob->handle($generateVariantsAction);
         }
 
         $this->info('✅ Test image and variants generated successfully.');

@@ -4,8 +4,6 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Http\UploadedFile;
-use Intervention\Image\Drivers\Gd\Driver as GdDriver;
-use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
 use Intervention\Image\Encoders\AvifEncoder;
 use Intervention\Image\Encoders\BmpEncoder;
 use Intervention\Image\Encoders\GifEncoder;
@@ -49,12 +47,12 @@ class CheckForSupportedImageFormatsCommand extends Command
     /**
      * Execute the console command.
      */
-    public function handle()
+    public function handle(ImageManager $imageManager): int
     {
         $this->warn('Checking for supported image formats...');
 
         $file = UploadedFile::fake()->image('image.jpg');
-        $image = $this->manager()->read($file->getRealPath());
+        $image = $imageManager->read($file->getRealPath());
 
         $supported = [];
         foreach (static::$formats as $mime => [$encoder, $extension]) {
@@ -71,16 +69,5 @@ class CheckForSupportedImageFormatsCommand extends Command
         $this->table(['MIME Type', 'Extension', 'Supported', 'Message'], $supported);
 
         return 0;
-    }
-
-    protected function manager(): ImageManager
-    {
-        $driver = strtolower(config('images.driver', 'gd'));
-
-        return new ImageManager(match ($driver) {
-            'gd' => new GdDriver,
-            'imagick', 'imagemagic' => new ImagickDriver,
-            default => app($driver),
-        });
     }
 }

@@ -7,13 +7,13 @@ use App\Models\Image;
 use App\Support\ImageFile;
 use App\Support\ImageStorage;
 use Illuminate\Support\Facades\Storage;
-use Intervention\Image\Drivers\Gd\Driver as GdDriver;
-use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
 use Intervention\Image\Image as InterventionImage;
 use Intervention\Image\ImageManager;
 
 class GenerateVariantsAction
 {
+    public function __construct(protected ImageManager $imageManager) {}
+
     public function handle(Image $imageModel): array
     {
         $this->validateImageModel($imageModel);
@@ -25,7 +25,7 @@ class GenerateVariantsAction
 
         try {
             /** @var InterventionImage $image */
-            $image = $this->manager()->read($imageFileStream);
+            $image = $this->imageManager->read($imageFileStream);
         } catch (\Throwable $e) {
             throw ImageVariantGenerationException::sourceImageUnreadable(
                 $imageFile->disk,
@@ -108,16 +108,5 @@ class GenerateVariantsAction
                 $e
             );
         }
-    }
-
-    protected function manager(): ImageManager
-    {
-        $driver = config('images.driver', 'gd');
-
-        return new ImageManager(match ($driver) {
-            'gd', 'GD', 'Gd', 'GdDriver' => new GdDriver,
-            'imagick', 'Imagick', 'ImagickDriver' => new ImagickDriver,
-            default => app($driver),
-        });
     }
 }

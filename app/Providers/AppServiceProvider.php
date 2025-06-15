@@ -6,6 +6,10 @@ use App\Variants\ImageVariant;
 use App\Variants\ImageVariantRegistry;
 use App\Variants\Modifiers\ImageCropModifier;
 use Illuminate\Support\ServiceProvider;
+use Intervention\Image\Drivers\Gd\Driver as GdDriver;
+use Intervention\Image\Drivers\Imagick\Driver as ImagickDriver;
+use Intervention\Image\Drivers\Vips\Driver as VipsDriver;
+use Intervention\Image\ImageManager;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -14,7 +18,18 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(ImageManager::class, function ($app) {
+            $driver = strtolower(config('images.driver', 'gd'));
+
+            $driverInstance = match ($driver) {
+                'gd' => new GdDriver,
+                'imagick', 'imagemagic' => new ImagickDriver,
+                'vips', 'libvips' => new VipsDriver,
+                default => $app->make($driver),
+            };
+
+            return new ImageManager($driverInstance);
+        });
     }
 
     /**

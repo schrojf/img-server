@@ -25,6 +25,9 @@
         "pestphp/pest": "^3.8",
         "pestphp/pest-plugin-laravel": "^3.2"
     },
+    "suggest": {
+        "intervention/image-driver-vips": "Required if you want to use the VIPS driver for Intervention Image"
+    },
     "autoload": {
         "psr-4": {
             "App\\": "app/",

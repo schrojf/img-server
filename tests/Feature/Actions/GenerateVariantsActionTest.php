@@ -11,6 +11,7 @@ use App\Variants\ImageVariantRegistry;
 use Illuminate\Http\Testing\FileFactory;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Intervention\Image\ImageManager;
 
 function imageWithFile(?string $fakeDisk = null): Image
 {
@@ -49,7 +50,7 @@ test('image variants are generated and persisted on to the disk', function () {
     Storage::fake($fakeDisk = ImageStorage::original());
     $imageModel = imageWithFile($fakeDisk);
 
-    $job = new GenerateVariantsAction;
+    $job = new GenerateVariantsAction(app(ImageManager::class));
 
     Storage::fake(ImageStorage::variant());
 
