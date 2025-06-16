@@ -82,5 +82,5 @@ test('image variants are generated and persisted on to the disk', function () {
 
     expect($imageModel->status)->toBe(ImageStatus::IMAGE_DOWNLOADED) // Image state is keep unchanged
         ->and($imageModel->last_error)->toBeNull()
-        ->and($imageModel->variant_files)->toHaveCount(count(ImageVariantRegistry::all()));
+        ->and($variants)->toHaveCount(count(ImageVariantRegistry::all()));
 });

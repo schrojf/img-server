@@ -62,6 +62,8 @@ class DownloadImageAction
         }
 
         if (! $tmpFile->isValidImage) {
+            $this->clean($tmpFile);
+
             throw DownloadImageActionException::make(
                 "Downloaded file is not a valid image for image [ID: {$image->getKey()}]. Reason: ".($tmpFile->firstError ?? 'Unknown error'),
                 context: [
@@ -77,6 +79,8 @@ class DownloadImageAction
         $disk = ImageStorage::originalDisk();
 
         if ($disk->exists($fileName)) {
+            $this->clean($tmpFile);
+
             throw DownloadImageActionException::make(
                 "File collision: Generated file name '{$fileName}' already exists on disk '{$diskName}'.",
                 context: [
@@ -94,10 +98,16 @@ class DownloadImageAction
             $tmpFile->dimensions['height'],
         );
 
-        $image = $this->updatePendingState($image, $file);
+        try {
+            $image = $this->updatePendingState($image, $file);
+        } catch (\Throwable $e) {
+            $this->clean($tmpFile);
+
+            throw $e;
+        }
 
         if ($disk->putFileAs($tmpFile->path, $fileName) === false) {
-            $image = $this->cleanFailedPendingState($image, $tmpFile);
+            $this->clean($tmpFile);
 
             throw DownloadImageActionException::make(
                 "Failed to store image file '{$fileName}' to disk '{$diskName}'.",
@@ -108,9 +118,7 @@ class DownloadImageAction
             );
         }
 
-        @unlink($tmpFile->path);
-
-        $this->updateCompletedState($image, $file);
+        $this->clean($tmpFile);
 
         return $file;
     }
@@ -122,7 +130,7 @@ class DownloadImageAction
 
             if (! empty($image->image_file)) {
                 throw DownloadImageActionException::make(
-                    "Could not update pending state. Image [ID: {$image->getKey()}] already has an image_file assigned.",
+                    "Image [ID: {$image->getKey()}] already has an image_file assigned.",
                     context: [
                         'image_id' => $image->getKey(),
                         'image_file' => $image->image_file,
@@ -130,37 +138,16 @@ class DownloadImageAction
                 );
             }
 
-            // Optional: $image->state = ImageStatus::DOWNLOADING_IMAGE; // It could also be PERSISTING_DOWNLOADED_IMAGE
-            $image->image_file = $file->toArray();
+            // $image->state = ImageStatus::PERSISTING_DOWNLOADED_IMAGE; // Optional intermediate state
+            $image->image_file = ['_pending' => $file->toArray()];
             $image->save();
 
             return $image;
         });
     }
 
-    protected function cleanFailedPendingState(Image $image, DownloadedFile $tmpFile): Image
+    protected function clean(DownloadedFile $tmpFile): bool
     {
-        @unlink($tmpFile->path);
-
-        return DB::transaction(function () use ($image) {
-            $image = Image::lockForUpdate()->findOrFail($image->id);
-
-            if (empty($image->image_file)) {
-                // This should trigger a new inconsistency error.
-                // At this point, I have a pending state saved inside `image_file` field.
-                // Also, I could check that file and perform additional cleanup, but this one file
-                // is the same as which has failed to be written on to the disk.
-            }
-
-            $image->image_file = null;
-            $image->save();
-
-            return $image;
-        });
-    }
-
-    protected function updateCompletedState(Image $image, ImageFile $file)
-    {
-        // This action is done in DownloadImageJob class.
+        return @unlink($tmpFile->path);
     }
 }

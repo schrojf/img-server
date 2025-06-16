@@ -32,6 +32,10 @@ class GenerateVariantsAction
                 $imageFile->fileName,
                 $e
             );
+        } finally {
+            if (is_resource($imageFileStream)) {
+                fclose($imageFileStream);
+            }
         }
 
         $targetDisk = ImageStorage::variant();
@@ -42,7 +46,6 @@ class GenerateVariantsAction
 
         try {
             $generatedVariants = $pendingVariants->generateVariants($image);
-            $this->updateFinalState($imageModel, $generatedVariants);
         } catch (\Throwable $e) {
             $pendingVariants->deleteProcessedFiles();
             throw $e;
@@ -65,7 +68,7 @@ class GenerateVariantsAction
         }
 
         if (! empty($imageModel->variant_files)) {
-            // Todo: Error variants already generated or pending variants are present
+            throw ImageVariantGenerationException::variantsAlreadyExist($imageModel);
         }
     }
 
@@ -81,30 +84,20 @@ class GenerateVariantsAction
 
     protected function updatePendingState(Image $imageModel, PendingVariants $pendingVariants): void
     {
+        if (! empty($imageModel->variant_files)) {
+            throw ImageVariantGenerationException::variantsAlreadyExist($imageModel);
+        }
+
+        $imageModel->variant_files = [
+            '_pending' => $pendingVariants->getPendingFiles(),
+        ];
+
         try {
-            $toBeEncoded = $pendingVariants->getPendingFiles();
-            $variantFiles = $imageModel->variant_files ?? [];
-            $variantFiles['_pending'] = $toBeEncoded;
             $imageModel->save();
         } catch (\Throwable $e) {
             throw ImageVariantGenerationException::databaseUpdateFailed(
                 $imageModel->id,
                 "update pending state for image: {$imageModel->id}",
-                $e
-            );
-        }
-    }
-
-    protected function updateFinalState(Image $imageModel, array $generatedVariants): void
-    {
-        try {
-            // Final state replaces all variant files
-            $imageModel->variant_files = $generatedVariants;
-            $imageModel->save();
-        } catch (\Throwable $e) {
-            throw ImageVariantGenerationException::databaseUpdateFailed(
-                $imageModel->id,
-                "update final state for image: {$imageModel->id}",
                 $e
             );
         }

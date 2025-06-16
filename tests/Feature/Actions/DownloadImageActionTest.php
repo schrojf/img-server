@@ -54,7 +54,7 @@ test('downloads and saves image from valid URL into storage', function () {
 
     $imageModel->refresh();
 
-    expect($imageModel->image_file)->toMatchArray($file->toArray())
+    expect($imageModel->image_file['_pending'])->toMatchArray($file->toArray())
         ->and($imageModel->last_error)->toBeNull();
 
     Storage::disk(ImageStorage::original())->assertExists($file->fileName);
@@ -162,7 +162,7 @@ test('saves image using mocked file and filename actions', function () {
 
     $imageModel->refresh();
 
-    expect($imageModel->image_file)->toMatchArray([
+    expect($imageModel->image_file['_pending'])->toMatchArray([
         'disk' => ImageStorage::original(),
         'file_name' => "saved/original_filename_{$imageModel->id}.jpg",
         'mime_type' => 'image/jpeg',

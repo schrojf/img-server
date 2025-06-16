@@ -2,6 +2,7 @@
 
 namespace App\Exceptions;
 
+use App\Models\Image;
 use Exception;
 
 class ImageVariantGenerationException extends Exception
@@ -106,6 +107,19 @@ class ImageVariantGenerationException extends Exception
             1009,
             null,
             ['disk' => $diskName]
+        );
+    }
+
+    public static function variantsAlreadyExist(Image $image): self
+    {
+        return new self(
+            "Image [ID: {$image->id}] already has an variant_files assigned.",
+            1010,
+            null,
+            [
+                'image_id' => $image->id,
+                'variant_files' => $image->variant_files,
+            ]
         );
     }
 }
