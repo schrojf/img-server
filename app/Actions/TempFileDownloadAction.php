@@ -2,6 +2,7 @@
 
 namespace App\Actions;
 
+use App\Data\DownloadConfig;
 use App\Support\DownloadedFile;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
@@ -9,31 +10,21 @@ use RuntimeException;
 
 class TempFileDownloadAction
 {
-    protected const MAX_FILE_SIZE = 30 * 1024 * 1024; // 30 MB
+    protected ?DownloadConfig $config;
 
-    protected const TIMEOUT = 120; // seconds
+    public function __construct(?DownloadConfig $config = null)
+    {
+        $this->config = $config ?? DownloadConfig::fromConfig();
+    }
 
-    protected const MAX_RETRIES = 3;
-
-    protected const BASE_BACKOFF_MS = 200; // milliseconds
-
-    public static string $tmpPrefix = 'image-server-';
-
-    public static string|false $userAgent = 'ImageServer Downloader';
-
-    /**
-     * @return string
-     *
-     * @throws \Illuminate\Http\Client\RequestException|\RuntimeException
-     */
     public function handle(string $url): DownloadedFile
     {
         $attempt = 0;
 
-        while ($attempt < static::MAX_RETRIES) {
+        while ($attempt < $this->config->retries) {
             $attempt++;
 
-            $temporaryFile = tempnam(sys_get_temp_dir(), static::$tmpPrefix);
+            $temporaryFile = tempnam(sys_get_temp_dir(), $this->config->tmpPrefix);
             $stream = fopen($temporaryFile, 'w+');
 
             if (! $stream) {
@@ -43,11 +34,11 @@ class TempFileDownloadAction
             try {
                 $downloaded = 0;
 
-                $response = Http::withUserAgent(static::$userAgent)
-                    ->timeout(static::TIMEOUT)
+                $response = Http::withUserAgent($this->config->userAgent)
+                    ->timeout($this->config->timeout)
                     ->withOptions([
                         'stream' => true,
-                        'read_timeout' => static::TIMEOUT,
+                        'read_timeout' => $this->config->timeout,
                         'connect_timeout' => 10,
                     ])
                     ->throw()
@@ -56,8 +47,8 @@ class TempFileDownloadAction
 
                 // Early size check
                 $contentLength = $response->header('Content-Length');
-                if ($contentLength !== null && (int) $contentLength > static::MAX_FILE_SIZE) {
-                    throw new RuntimeException('File size exceeds 30MB');
+                if ($contentLength !== null && (int) $contentLength > $this->config->maxFileSize) {
+                    throw new RuntimeException("File size exceeds limit of maximum allowed {$this->config->maxFileSize} bytes.");
                 }
 
                 $bodyStream = $response->toPsrResponse()->getBody();
@@ -66,8 +57,8 @@ class TempFileDownloadAction
                     $chunk = $bodyStream->read(1024 * 1024);
                     $downloaded += strlen($chunk);
 
-                    if ($downloaded > static::MAX_FILE_SIZE) {
-                        throw new RuntimeException('File size exceeds 30MB');
+                    if ($downloaded > $this->config->maxFileSize) {
+                        throw new RuntimeException("File size exceeds limit of maximum allowed {$this->config->maxFileSize} bytes.");
                     }
 
                     if (fwrite($stream, $chunk) === false) {
@@ -85,11 +76,11 @@ class TempFileDownloadAction
                 }
                 @unlink($temporaryFile);
 
-                if ($attempt >= static::MAX_RETRIES) {
+                if ($attempt >= $this->config->retries) {
                     throw $e;
                 }
 
-                $delay = (static::BASE_BACKOFF_MS * (2 ** ($attempt - 1))) + rand(0, 100);
+                $delay = ($this->config->baseBackoffMs * (2 ** ($attempt - 1))) + rand(0, 100);
                 usleep($delay * 1000);
 
                 continue;

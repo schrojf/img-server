@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\TempFileDownloadAction;
+use App\Data\DownloadConfig;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\Client\RequestException;
@@ -46,13 +47,21 @@ it('throws an exception if connection fails', function () {
 it('respects the custom user agent', function () {
     $url = 'https://example.org/file.txt';
 
-    TempFileDownloadAction::$userAgent = 'CustomAgent';
+    $cfg = config('image.downloads');
+    $config = new DownloadConfig(
+        maxFileSize: $cfg['maxFileSize'] ?? 30 * 1024 * 1024,
+        timeout: $cfg['timeout'] ?? 120,
+        retries: $cfg['retries'] ?? 3,
+        baseBackoffMs: $cfg['baseBackoffMs'] ?? 200,
+        userAgent: 'CustomAgent',
+        tmpPrefix: $cfg['tmpPrefix'] ?? 'image-server-',
+    );
 
     Http::fake([
         $url => Http::response('File content'),
     ]);
 
-    $tempFile = (new TempFileDownloadAction)->handle($url)->path;
+    $tempFile = (new TempFileDownloadAction($config))->handle($url)->path;
 
     expect(file_exists($tempFile))->toBeTrue();
 
@@ -66,13 +75,21 @@ it('respects the custom user agent', function () {
 it('uses no user agent when set to false', function () {
     $url = 'https://example.org/file.txt';
 
-    TempFileDownloadAction::$userAgent = false;
+    $cfg = config('image.downloads');
+    $config = new DownloadConfig(
+        maxFileSize: $cfg['maxFileSize'] ?? 30 * 1024 * 1024,
+        timeout: $cfg['timeout'] ?? 120,
+        retries: $cfg['retries'] ?? 3,
+        baseBackoffMs: $cfg['baseBackoffMs'] ?? 200,
+        userAgent: false,
+        tmpPrefix: $cfg['tmpPrefix'] ?? 'image-server-',
+    );
 
     Http::fake([
         $url => Http::response('File content'),
     ]);
 
-    $tempFile = (new TempFileDownloadAction)->handle($url)->path;
+    $tempFile = (new TempFileDownloadAction($config))->handle($url)->path;
 
     expect(file_exists($tempFile))->toBeTrue();
 
@@ -86,13 +103,21 @@ it('uses no user agent when set to false', function () {
 it('uses a custom temporary file prefix', function () {
     $url = 'https://example.org/file.bin';
 
-    TempFileDownloadAction::$tmpPrefix = 'custom-prefix';
+    $cfg = config('image.downloads');
+    $config = new DownloadConfig(
+        maxFileSize: $cfg['maxFileSize'] ?? 30 * 1024 * 1024,
+        timeout: $cfg['timeout'] ?? 120,
+        retries: $cfg['retries'] ?? 3,
+        baseBackoffMs: $cfg['baseBackoffMs'] ?? 200,
+        userAgent: $cfg['userAgent'] ?? 'ImageServer Downloader',
+        tmpPrefix: 'custom-prefix',
+    );
 
     Http::fake([
         $url => Http::response('File content'),
     ]);
 
-    $tempFile = (new TempFileDownloadAction)->handle($url)->path;
+    $tempFile = (new TempFileDownloadAction($config))->handle($url)->path;
 
     expect(basename($tempFile))->toStartWith('custom-prefix');
 

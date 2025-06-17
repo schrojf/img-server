@@ -9,7 +9,12 @@ return [
 
     'downloads' => [
         'allowedExtensions' => ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'],
-        'maxFileSize' => 30_000_000,
+        'maxFileSize' => 30 * 1024 * 1024, // 30 MB
+        'timeout' => 120, // seconds
+        'retries' => 3,
+        'baseBackoffMs' => 200,
+        'userAgent' => 'ImageServer Downloader',
+        'tmpPrefix' => 'image-server-',
     ],
 
     'driver' => env('INTERVENTION_IMAGE_DRIVE', 'Gd'),
