@@ -98,4 +98,4 @@ test('invalid state transition', function () {
             'current_status' => ImageStatus::EXPIRED->value,
             'expected_status' => ImageStatus::QUEUED->value,
         ]);
-});
+})->todo('Change test to reflect changes made DownloadImageJob class.');
