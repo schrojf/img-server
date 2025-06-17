@@ -2,6 +2,7 @@
 
 namespace App\Actions;
 
+use App\Data\DownloadableImage;
 use App\Exceptions\DownloadImageActionException;
 use App\Exceptions\InvalidImageStateException;
 use App\Models\Enums\ImageStatus;
@@ -9,9 +10,9 @@ use App\Models\Image;
 use App\Support\DownloadedFile;
 use App\Support\ImageFile;
 use App\Support\ImageStorage;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class DownloadImageAction
 {
@@ -21,37 +22,32 @@ class DownloadImageAction
     ) {}
 
     /**
-     * @throws DownloadImageActionException
+     * @throws DownloadImageActionException|InvalidImageStateException|ModelNotFoundException
      */
     public function handle(int $imageId): ImageFile
     {
-        $image = $this->updateQueuedStateAndGetImage($imageId);
+        $imageData = $this->updateQueuedStateAndGetImageData($imageId);
 
         try {
-            $this->validateRetrievedModel($image);
-
-            return $this->downloadImage($image);
+            return $this->downloadImage($imageData);
         } catch (DownloadImageActionException $exception) {
-            $this->updateFailedState($image, $exception->getMessage());
+            $this->updateFailedState($imageData->id, $exception->getMessage());
 
             throw $exception;
         }
     }
 
-    /**
-     * @throws DownloadImageActionException
-     */
-    protected function downloadImage(Image $image): ImageFile
+    protected function downloadImage(DownloadableImage $image): ImageFile
     {
         try {
-            $tmpFile = $this->tempFileDownloadAction->handle($image->original_url);
+            $tmpFile = $this->tempFileDownloadAction->handle($image->url);
         } catch (RequestException $e) {
             throw DownloadImageActionException::make(
-                "Failed to download image from URL [{$image->original_url}]: ".$e->getMessage(),
+                "Failed to download image from URL [{$image->url}]: ".$e->getMessage(),
                 $e->getCode(),
                 $e,
                 [
-                    'image_id' => $image->getKey(),
+                    'image_id' => $image->id,
                     'exception_name' => get_class($e),
                     'exception_code' => $e->getCode(),
                 ]
@@ -62,10 +58,10 @@ class DownloadImageAction
             $this->clean($tmpFile);
 
             throw DownloadImageActionException::make(
-                "Downloaded file is not a valid image for image [ID: {$image->getKey()}]. Reason: ".($tmpFile->firstError ?? 'Unknown error'),
+                "Downloaded file is not a valid image for image [ID: {$image->id}]. Reason: ".($tmpFile->firstError ?? 'Unknown error'),
                 context: [
-                    'image_id' => $image->getKey(),
-                    'original_url' => $image->original_url,
+                    'image_id' => $image->id,
+                    'original_url' => $image->url,
                 ]
             );
         }
@@ -81,7 +77,7 @@ class DownloadImageAction
             throw DownloadImageActionException::make(
                 "File collision: Generated file name '{$fileName}' already exists on disk '{$diskName}'.",
                 context: [
-                    'image_id' => $image->getKey(),
+                    'image_id' => $image->id,
                 ]
             );
         }
@@ -96,20 +92,36 @@ class DownloadImageAction
         );
 
         try {
-            $this->updatePendingState($image, $file);
+            $this->updatePendingState($image->id, $file);
         } catch (\Throwable $e) {
             $this->clean($tmpFile);
 
             throw $e;
         }
 
-        if ($disk->putFileAs($tmpFile->path, $fileName) === false) {
+        try {
+            $status = $disk->putFileAs($tmpFile->path, $fileName);
+        } catch (\Throwable $e) {
+            $this->clean($tmpFile);
+
+            throw DownloadImageActionException::make(
+                "Failed to store image file '{$fileName}' to disk '{$diskName}'. [".get_class($e)."]: {$e->getMessage()}",
+                $e->getCode(),
+                $e,
+                [
+                    'image_id' => $image->id,
+                    'tmp_file_path' => $tmpFile->path,
+                ],
+            );
+        }
+
+        if ($status === false) {
             $this->clean($tmpFile);
 
             throw DownloadImageActionException::make(
                 "Failed to store image file '{$fileName}' to disk '{$diskName}'.",
                 context: [
-                    'image_id' => $image->getKey(),
+                    'image_id' => $image->id,
                     'tmp_file_path' => $tmpFile->path,
                 ],
             );
@@ -117,64 +129,44 @@ class DownloadImageAction
 
         $this->clean($tmpFile);
 
-        $this->updateCompletedState($image);
+        $this->updateCompletedState($image->id);
 
         return $file;
     }
 
-    protected function updateQueuedStateAndGetImage(int $imageId): Image
+    protected function updateQueuedStateAndGetImageData(int $imageId): DownloadableImage
     {
         return DB::transaction(function () use ($imageId) {
             $image = Image::lockForUpdate()->findOrFail($imageId);
 
             if ($image->status !== ImageStatus::QUEUED) {
-                Log::error('Invalid image state transition attempted.', [
+                throw InvalidImageStateException::fromInvalidStateTransition($image->status, ImageStatus::QUEUED, [
                     'image_id' => $imageId,
-                    'current_status' => $image->status->value,
-                    'expected_status' => ImageStatus::QUEUED->value,
                 ]);
-
-                throw InvalidImageStateException::fromInvalidStateTransition($image->status, ImageStatus::QUEUED);
             }
 
             $image->update([
                 'status' => ImageStatus::DOWNLOADING_IMAGE,
             ]);
 
-            return $image;
+            return new DownloadableImage(
+                $image->id,
+                $image->original_url,
+            );
         });
     }
 
-    protected function validateRetrievedModel(Image $image): void
+    protected function updatePendingState(int $imageId, ImageFile $file): void
     {
-        if (empty($image->original_url)) {
-            throw DownloadImageActionException::make(
-                "Image [ID: {$image->getKey()}] does not have an original URL set.",
-                context: ['image_id' => $image->getKey()]
-            );
-        }
-
-        if (! empty($image->image_file)) {
-            throw DownloadImageActionException::make(
-                "Image [ID: {$image->getKey()}] already has an image_file assigned.",
-                context: [
-                    'image_id' => $image->getKey(),
-                    'image_file' => $image->image_file,
-                ],
-            );
-        }
-    }
-
-    protected function updatePendingState(Image $image, ImageFile $file): void
-    {
-        DB::transaction(function () use ($image, $file) {
-            $image = Image::lockForUpdate()->findOrFail($image->id);
+        DB::transaction(function () use ($imageId, $file) {
+            $image = Image::lockForUpdate()->findOrFail($imageId);
 
             if (! empty($image->image_file)) {
                 throw DownloadImageActionException::make(
                     "Image [ID: {$image->getKey()}] already has an image_file assigned.",
                     context: [
                         'image_id' => $image->getKey(),
+                        'current_status' => $image->status->value,
                         'image_file' => $image->image_file,
                     ],
                 );
@@ -183,24 +175,18 @@ class DownloadImageAction
             $image->image_file = $file->toArray();
             // $image->state = ImageStatus::PERSISTING_DOWNLOADED_IMAGE; // Optional intermediate state
             $image->save();
-
-            return $image;
         });
     }
 
-    protected function updateCompletedState(Image $image): void
+    protected function updateCompletedState(int $imageId): void
     {
-        DB::transaction(function () use ($image) {
-            $image = Image::lockForUpdate()->findOrFail($image->id);
+        DB::transaction(function () use ($imageId) {
+            $image = Image::lockForUpdate()->findOrFail($imageId);
 
             if ($image->status !== ImageStatus::DOWNLOADING_IMAGE) {
-                Log::error('Invalid image state transition attempted.', [
-                    'image_id' => $image->id,
-                    'current_status' => $image->status->value,
-                    'expected_status' => ImageStatus::DOWNLOADING_IMAGE->value,
+                throw InvalidImageStateException::fromInvalidStateTransition($image->status, ImageStatus::DOWNLOADING_IMAGE, [
+                    'image_id' => $imageId,
                 ]);
-
-                throw InvalidImageStateException::fromInvalidStateTransition($image->status, ImageStatus::DOWNLOADING_IMAGE);
             }
 
             $image->status = ImageStatus::IMAGE_DOWNLOADED;
@@ -208,19 +194,15 @@ class DownloadImageAction
         });
     }
 
-    protected function updateFailedState(Image $image, string $error): void
+    protected function updateFailedState(int $imageId, string $error): void
     {
-        DB::transaction(function () use ($image, $error) {
-            $image = Image::lockForUpdate()->findOrFail($image->id);
+        DB::transaction(function () use ($imageId, $error) {
+            $image = Image::lockForUpdate()->findOrFail($imageId);
 
             if ($image->status !== ImageStatus::DOWNLOADING_IMAGE) {
-                Log::error('Invalid image state transition attempted.', [
-                    'image_id' => $image->id,
-                    'current_status' => $image->status->value,
-                    'expected_status' => ImageStatus::DOWNLOADING_IMAGE->value,
+                throw InvalidImageStateException::fromInvalidStateTransition($image->status, ImageStatus::DOWNLOADING_IMAGE, [
+                    'image_id' => $imageId,
                 ]);
-
-                throw InvalidImageStateException::fromInvalidStateTransition($image->status, ImageStatus::DOWNLOADING_IMAGE);
             }
 
             $image->status = ImageStatus::FAILED;

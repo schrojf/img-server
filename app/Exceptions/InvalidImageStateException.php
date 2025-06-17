@@ -8,18 +8,30 @@ use Throwable;
 
 class InvalidImageStateException extends Exception
 {
+    protected array $context = [];
+
     public function __construct(
         public ImageStatus $currentStatus,
         public ImageStatus $expectedStatus,
         ?string $message = null,
-        ?Throwable $previous = null
+        ?Throwable $previous = null,
+        array $context = [],
     ) {
         $message ??= "Invalid image state: expected '{$expectedStatus->value}', got '{$currentStatus->value}'";
         parent::__construct($message, 0, $previous);
+        $this->context = $context;
     }
 
-    public static function fromInvalidStateTransition(ImageStatus $current, ImageStatus $expected): self
+    public static function fromInvalidStateTransition(ImageStatus $current, ImageStatus $expected, array $additionalContext = []): self
     {
-        return new self($current, $expected);
+        return new self($current, $expected, context: array_merge($additionalContext, [
+            'current_status' => $current->value,
+            'expected_status' => $expected->value,
+        ]));
+    }
+
+    public function context(): array
+    {
+        return $this->context;
     }
 }
