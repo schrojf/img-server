@@ -3,12 +3,12 @@
 namespace App\Console\Commands;
 
 use App\Actions\GenerateRandomHashFileNameAction;
+use App\Actions\GenerateVariantsAction;
 use App\Jobs\GenerateImageVariantsJob;
 use App\Models\Enums\ImageStatus;
 use App\Models\Image;
 use App\Support\ImageFile;
 use App\Support\ImageStorage;
-use App\Variants\GenerateVariantsAction;
 use Illuminate\Console\Command;
 use Illuminate\Http\Testing\FileFactory;
 use Illuminate\Support\Facades\App;

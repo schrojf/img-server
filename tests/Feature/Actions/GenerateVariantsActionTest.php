@@ -1,11 +1,11 @@
 <?php
 
 use App\Actions\GenerateRandomHashFileNameAction;
+use App\Actions\GenerateVariantsAction;
 use App\Models\Enums\ImageStatus;
 use App\Models\Image;
 use App\Support\ImageFile;
 use App\Support\ImageStorage;
-use App\Variants\GenerateVariantsAction;
 use App\Variants\ImageVariant;
 use App\Variants\ImageVariantRegistry;
 use Illuminate\Http\Testing\FileFactory;
@@ -54,7 +54,7 @@ test('image variants are generated and persisted on to the disk', function () {
 
     Storage::fake(ImageStorage::variant());
 
-    $variants = $job->handle($imageModel);
+    $variants = $job->handle($imageModel->id);
 
     foreach ($variants as $variant) {
         /** @var ImageFile $subVariant */
@@ -80,7 +80,7 @@ test('image variants are generated and persisted on to the disk', function () {
 
     $imageModel->refresh();
 
-    expect($imageModel->status)->toBe(ImageStatus::IMAGE_DOWNLOADED) // Image state is keep unchanged
+    expect($imageModel->status)->toBe(ImageStatus::DONE)
         ->and($imageModel->last_error)->toBeNull()
         ->and($variants)->toHaveCount(count(ImageVariantRegistry::all()));
 });
