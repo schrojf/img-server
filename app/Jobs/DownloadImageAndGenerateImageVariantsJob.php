@@ -3,10 +3,10 @@
 namespace App\Jobs;
 
 use App\Actions\DownloadImageAction;
+use App\Actions\GenerateVariantsAction;
 use App\Exceptions\DownloadImageActionException;
 use App\Exceptions\ImageVariantGenerationException;
 use App\Exceptions\InvalidImageStateException;
-use App\Variants\GenerateVariantsAction;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
