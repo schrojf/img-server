@@ -2,6 +2,7 @@
 
 use App\Actions\GenerateRandomHashFileNameAction;
 use App\Actions\GenerateVariantsAction;
+use App\Exceptions\ImageVariantGenerationException;
 use App\Models\Enums\ImageStatus;
 use App\Models\Image;
 use App\Support\ImageFile;
@@ -83,4 +84,18 @@ test('image variants are generated and persisted on to the disk', function () {
     expect($imageModel->status)->toBe(ImageStatus::DONE)
         ->and($imageModel->last_error)->toBeNull()
         ->and($variants)->toHaveCount(count(ImageVariantRegistry::all()));
+});
+
+test('exception will be caught and save last error', function () {
+    $image = image();
+    $image->update(['status' => ImageStatus::IMAGE_DOWNLOADED]);
+
+    $action = new GenerateVariantsAction(app(ImageManager::class));
+
+    expect(fn () => $action->handle($image->id))->toThrow(ImageVariantGenerationException::class);
+
+    $image->refresh();
+
+    expect($image->last_error)->toBe('Image model must have an image file')
+        ->and($image->status)->toBe(ImageStatus::FAILED);
 });

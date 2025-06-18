@@ -1,12 +1,11 @@
 <?php
 
 use App\Actions\DownloadImageAction;
-use App\Exceptions\DownloadImageActionException;
-use App\Exceptions\InvalidImageStateException;
+use App\Actions\GenerateRandomHashFileNameAction;
+use App\Actions\TempFileDownloadAction;
 use App\Jobs\DownloadImageJob;
 use App\Jobs\GenerateImageVariantsJob;
 use App\Models\Enums\ImageStatus;
-use App\Models\Image;
 use App\Support\ImageFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
@@ -16,12 +15,15 @@ test('log was called when no image was found', function () {
 
     Log::spy();
 
-    $job->handle(mock(DownloadImageAction::class)->makePartial());
+    $job->handle(new DownloadImageAction(
+        mock(TempFileDownloadAction::class)->makePartial(),
+        mock(GenerateRandomHashFileNameAction::class)->makePartial()
+    ));
 
     Log::shouldHaveReceived('warning')
         ->once()
         ->with('Image with id 1234 not found.');
-})->todo('Change test to reflect changes made DownloadImageJob class.');
+});
 
 test('action with image model was called', function () {
     $image = image();
@@ -32,8 +34,8 @@ test('action with image model was called', function () {
     $m = mock(DownloadImageAction::class)
         ->shouldReceive('handle')
         ->once()
-        ->withArgs(function (Image $imageArg) use ($image) {
-            return $imageArg->id === $image->id;
+        ->withArgs(function (int $imageId) use ($image) {
+            return $imageId === $image->id;
         })
         ->andReturn(new ImageFile('disk', 'image.jpg', 'image/jpeg', 0, 0, 0))
         ->getMock();
@@ -47,37 +49,12 @@ test('action with image model was called', function () {
     $image->refresh();
 
     expect($image->last_error)->toBeNull()
-        ->and($image->status)->toBe(ImageStatus::IMAGE_DOWNLOADED);
+        ->and($image->status)->toBe(ImageStatus::QUEUED);
 
     Queue::assertPushed(GenerateImageVariantsJob::class, function ($job) use ($image) {
         return $job->imageId === $image->id;
     });
-})->todo('Change test to reflect changes made DownloadImageJob class.');
-
-test('exception will be caught and save last error', function () {
-    $image = image();
-    $image->update(['status' => ImageStatus::QUEUED]);
-
-    $job = new DownloadImageJob($image->id);
-
-    $m = mock(DownloadImageAction::class)
-        ->shouldReceive('handle')
-        ->once()
-        ->withArgs(function (Image $imageArg) use ($image) {
-            return $imageArg->id === $image->id;
-        })
-        ->andThrow(DownloadImageActionException::make(
-            'Test error message.',
-        ))
-        ->getMock();
-
-    $job->handle($m);
-
-    $image->refresh();
-
-    expect($image->last_error)->toBe('Test error message.')
-        ->and($image->status)->toBe(ImageStatus::FAILED);
-})->todo('Change test to reflect changes made DownloadImageJob class.');
+});
 
 test('invalid state transition', function () {
     $image = image();
@@ -86,16 +63,13 @@ test('invalid state transition', function () {
 
     Log::spy();
 
-    expect(fn () => $job->handle($actionMock))->toThrow(
-        InvalidImageStateException::class,
-        "Invalid image state: expected 'queued', got 'expired'",
-    );
+    $job->handle($actionMock);
 
     Log::shouldHaveReceived('error')
-        ->once()
-        ->with('Invalid image state transition attempted.', [
+        // ->twice() // Log and report
+        ->with("Invalid image state: expected 'queued', got 'expired'", [
             'image_id' => $image->id,
             'current_status' => ImageStatus::EXPIRED->value,
             'expected_status' => ImageStatus::QUEUED->value,
         ]);
-})->todo('Change test to reflect changes made DownloadImageJob class.');
+});

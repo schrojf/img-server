@@ -61,6 +61,12 @@ class GenerateVariantsAction
             throw new \InvalidArgumentException('Image model must exist in database');
         }
 
+        if (empty($imageModel->image_file)) {
+            throw new ImageVariantGenerationException('Image model must have an image file', context: [
+                'image_id' => $imageModel->id,
+            ]);
+        }
+
         if (! empty($imageModel->variant_files)) {
             throw ImageVariantGenerationException::variantsAlreadyExist($imageModel);
         }
@@ -132,8 +138,9 @@ class GenerateVariantsAction
                 ]);
             }
 
-            if (! empty($imageModel->variant_files)) {
-                throw ImageVariantGenerationException::variantsAlreadyExist($imageModel);
+            if (! empty($image->variant_files)) {
+                // This error would be better with some invalid state or logical exception
+                throw ImageVariantGenerationException::variantsAlreadyExist($image);
             }
 
             $image->variant_files = [

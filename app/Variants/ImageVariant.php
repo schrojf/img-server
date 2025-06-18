@@ -4,7 +4,6 @@ namespace App\Variants;
 
 use App\Exceptions\ImageVariantGenerationException;
 use App\Variants\Modifiers\ImageModifier;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Intervention\Image\Encoders\AvifEncoder;
 use Intervention\Image\Encoders\JpegEncoder;
@@ -74,11 +73,6 @@ class ImageVariant
             try {
                 $modifier->apply($image);
             } catch (\Throwable $e) {
-                Log::error('Modifier failed: '.get_class($modifier), [
-                    'variant' => $this->variantName,
-                    'exception' => $e->getMessage(),
-                ]);
-
                 throw ImageVariantGenerationException::modifierFailed(
                     get_class($modifier),
                     $this->variantName,

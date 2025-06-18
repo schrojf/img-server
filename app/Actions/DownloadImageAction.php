@@ -11,7 +11,6 @@ use App\Support\DownloadedFile;
 use App\Support\ImageFile;
 use App\Support\ImageStorage;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\DB;
 
 class DownloadImageAction
@@ -41,7 +40,7 @@ class DownloadImageAction
     {
         try {
             $tmpFile = $this->tempFileDownloadAction->handle($image->url);
-        } catch (RequestException $e) {
+        } catch (\Throwable $e) {
             throw DownloadImageActionException::make(
                 "Failed to download image from URL [{$image->url}]: ".$e->getMessage(),
                 $e->getCode(),
@@ -161,7 +160,14 @@ class DownloadImageAction
         DB::transaction(function () use ($imageId, $file) {
             $image = Image::lockForUpdate()->findOrFail($imageId);
 
+            if ($image->status !== ImageStatus::DOWNLOADING_IMAGE) {
+                throw InvalidImageStateException::fromInvalidStateTransition($image->status, ImageStatus::DOWNLOADING_IMAGE, [
+                    'image_id' => $imageId,
+                ]);
+            }
+
             if (! empty($image->image_file)) {
+                // This error would be better with some invalid state or logical exception
                 throw DownloadImageActionException::make(
                     "Image [ID: {$image->getKey()}] already has an image_file assigned.",
                     context: [

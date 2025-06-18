@@ -4,10 +4,11 @@ use App\Actions\DownloadImageAction;
 use App\Actions\GenerateRandomHashFileNameAction;
 use App\Actions\TempFileDownloadAction;
 use App\Exceptions\DownloadImageActionException;
-use App\Models\Image;
+use App\Models\Enums\ImageStatus;
 use App\Support\DownloadedFile;
 use App\Support\ImageFile;
 use App\Support\ImageStorage;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -46,30 +47,37 @@ function fakeErrorUrl(): string
 test('downloads and saves image from valid URL into storage', function () {
     $url = fakeImageUrl();
     $imageModel = image($url);
+    $imageModel->update([
+        'status' => ImageStatus::QUEUED,
+    ]);
     Storage::fake(ImageStorage::original());
 
     $downloadImageAction = new DownloadImageAction(new TempFileDownloadAction, new GenerateRandomHashFileNameAction);
 
-    $file = $downloadImageAction->handle($imageModel);
+    $file = $downloadImageAction->handle($imageModel->id);
 
     $imageModel->refresh();
 
-    expect($imageModel->image_file['_pending'])->toMatchArray($file->toArray())
+    expect($imageModel->image_file)->toMatchArray($file->toArray())
         ->and($imageModel->last_error)->toBeNull();
 
     Storage::disk(ImageStorage::original())->assertExists($file->fileName);
-})->todo('Change test to reflect changes made DownloadImageAction class.');
+});
 
 test('throws if image model is not persisted', function () {
     $action = new DownloadImageAction(new TempFileDownloadAction, new GenerateRandomHashFileNameAction);
-    $action->handle(new Image);
+    $action->handle(123456789);
 })->throws(
-    DownloadImageActionException::class,
-    'Image model is not persisted in the database.',
-)->todo('Change test to reflect changes made DownloadImageAction class.');
+    ModelNotFoundException::class,
+    'No query results for model [App\Models\Image] 123456789',
+);
 
 test('throws if image model already has an image_file', function () {
-    $imageModel = image();
+    $url = fakeImageUrl();
+    $imageModel = image($url);
+    $imageModel->update([
+        'status' => ImageStatus::QUEUED,
+    ]);
     $imageModel->update(['image_file' => new ImageFile(
         'disk',
         'image.jpg',
@@ -81,39 +89,49 @@ test('throws if image model already has an image_file', function () {
 
     $action = new DownloadImageAction(new TempFileDownloadAction, new GenerateRandomHashFileNameAction);
 
-    expect(fn () => $action->handle($imageModel))->toThrow(
+    // This is checked after downloading and before its pending state is stored.
+    expect(fn () => $action->handle($imageModel->id))->toThrow(
         DownloadImageActionException::class,
         "Image [ID: {$imageModel->id}] already has an image_file assigned."
     );
-})->todo('Change test to reflect changes made DownloadImageAction class.');
+});
 
 test('throws if remote image URL returns server error', function () {
     $url = fakeErrorUrl();
     $imageModel = image($url);
+    $imageModel->update([
+        'status' => ImageStatus::QUEUED,
+    ]);
 
     $action = new DownloadImageAction(new TempFileDownloadAction, new GenerateRandomHashFileNameAction);
 
-    expect(fn () => $action->handle($imageModel))->toThrow(
+    expect(fn () => $action->handle($imageModel->id))->toThrow(
         DownloadImageActionException::class,
         "Failed to download image from URL [{$imageModel->original_url}]: ",
     );
-})->todo('Change test to reflect changes made DownloadImageAction class.');
+});
 
 test('throws if downloaded file is not a valid image', function () {
     $url = fakeTextUrl();
     $imageModel = image($url);
+    $imageModel->update([
+        'status' => ImageStatus::QUEUED,
+    ]);
 
     $action = new DownloadImageAction(new TempFileDownloadAction, new GenerateRandomHashFileNameAction);
 
-    expect(fn () => $action->handle($imageModel))->toThrow(
+    expect(fn () => $action->handle($imageModel->id))->toThrow(
         DownloadImageActionException::class,
         "Downloaded file is not a valid image for image [ID: {$imageModel->id}]. Reason: Downloaded file is not a valid image.",
     );
-})->todo('Change test to reflect changes made DownloadImageAction class.');
+});
 
 test('throws if generated file name already exists in storage', function () {
     $url = fakeImageUrl();
     $imageModel = image($url);
+    $imageModel->update([
+        'status' => ImageStatus::QUEUED,
+    ]);
     $filesystem = Storage::fake(ImageStorage::original());
 
     $nameActionMock = mock(GenerateRandomHashFileNameAction::class)
@@ -127,15 +145,18 @@ test('throws if generated file name already exists in storage', function () {
 
     $filesystem->put("saved/original_filename_{$imageModel->id}.jpg", 'content');
 
-    expect(fn () => $downloadImageAction->handle($imageModel))->toThrow(
+    expect(fn () => $downloadImageAction->handle($imageModel->id))->toThrow(
         DownloadImageActionException::class,
         "File collision: Generated file name 'saved/original_filename_{$imageModel->id}.jpg' already exists on disk 'downloaded'.",
     );
-})->todo('Change test to reflect changes made DownloadImageAction class.');
+});
 
 test('saves image using mocked file and filename actions', function () {
     $url = 'https://example.org/image.jpg';
     $imageModel = image($url);
+    $imageModel->update([
+        'status' => ImageStatus::QUEUED,
+    ]);
     $filesystem = Storage::fake(ImageStorage::original());
 
     $filesystem->put($tmpFilePath = 'tmp/path/to/image.jpg', UploadedFile::fake()->image('image.jpg')->getContent());
@@ -158,11 +179,11 @@ test('saves image using mocked file and filename actions', function () {
 
     $fileSize = $filesystem->size($tmpFilePath);
 
-    $file = $downloadImageAction->handle($imageModel);
+    $file = $downloadImageAction->handle($imageModel->id);
 
     $imageModel->refresh();
 
-    expect($imageModel->image_file['_pending'])->toMatchArray([
+    expect($imageModel->image_file)->toMatchArray([
         'disk' => ImageStorage::original(),
         'file_name' => "saved/original_filename_{$imageModel->id}.jpg",
         'mime_type' => 'image/jpeg',
@@ -171,11 +192,14 @@ test('saves image using mocked file and filename actions', function () {
         ->and($imageModel->last_error)->toBeNull();
 
     Storage::disk(ImageStorage::original())->assertExists($file->fileName);
-})->todo('Change test to reflect changes made DownloadImageAction class.');
+});
 
 test('deletes temporary file after saving image', function () {
     $url = 'https://example.org/image.jpg';
     $imageModel = image($url);
+    $imageModel->update([
+        'status' => ImageStatus::QUEUED,
+    ]);
     Storage::fake(ImageStorage::original());
 
     // Create a real temporary file
@@ -202,7 +226,31 @@ test('deletes temporary file after saving image', function () {
 
     $downloadImageAction = new DownloadImageAction($downloadFileActionMock, $nameActionMock);
 
-    $file = $downloadImageAction->handle($imageModel);
+    $file = $downloadImageAction->handle($imageModel->id);
 
     expect(file_exists($tmpPath))->toBeFalse();
-})->todo('Change test to reflect changes made DownloadImageAction class.');
+});
+
+test('exception will be caught and save last error', function () {
+    $image = image('https://example.org/image.jpg');
+    $image->update(['status' => ImageStatus::QUEUED]);
+
+    $m = mock(TempFileDownloadAction::class)
+        ->shouldReceive('handle')
+        ->once()
+        ->with('https://example.org/image.jpg')
+        ->andThrow(new \RuntimeException('Test error message.'))
+        ->getMock();
+
+    $job = new DownloadImageAction(
+        $m,
+        mock(GenerateRandomHashFileNameAction::class)->makePartial(),
+    );
+
+    expect(fn () => $job->handle($image->id))->toThrow(DownloadImageActionException::class);
+
+    $image->refresh();
+
+    expect($image->last_error)->toBe('Failed to download image from URL [https://example.org/image.jpg]: Test error message.')
+        ->and($image->status)->toBe(ImageStatus::FAILED);
+});

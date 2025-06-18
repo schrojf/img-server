@@ -103,8 +103,9 @@ class PendingVariants
     {
         foreach ($this->persistedFiles as $file) {
             try {
-                if (Storage::disk($file['disk'])->exists($file['fileName'])) {
-                    Storage::disk($file['disk'])->delete($file['fileName']);
+                $disk = Storage::disk($file['disk']);
+                if ($disk->exists($file['fileName'])) {
+                    $disk->delete($file['fileName']);
                     Log::debug('Cleaned up partial file', $file);
                 }
             } catch (\Throwable $e) {
