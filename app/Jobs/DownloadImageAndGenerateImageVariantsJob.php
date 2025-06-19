@@ -7,6 +7,7 @@ use App\Actions\GenerateVariantsAction;
 use App\Exceptions\DownloadImageActionException;
 use App\Exceptions\ImageVariantGenerationException;
 use App\Exceptions\InvalidImageStateException;
+use App\Exceptions\InvalidImageValueException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -34,15 +35,8 @@ class DownloadImageAndGenerateImageVariantsJob
         try {
             $downloadImageAction->handle($this->imageId);
             $generateVariantsAction->handle($this->imageId);
-        } catch (DownloadImageActionException $exception) {
-            Log::error($exception->getMessage(), $exception->context());
-            report($exception);
-        } catch (ImageVariantGenerationException $exception) {
+        } catch (DownloadImageActionException|ImageVariantGenerationException|InvalidImageValueException|InvalidImageStateException $exception) {
             Log::error($exception->getMessage(), $exception->getContext());
-            report($exception);
-        } catch (InvalidImageStateException $exception) {
-            Log::error($exception->getMessage(), $exception->context());
-            report($exception);
         } catch (ModelNotFoundException $exception) {
             Log::warning("Image with id {$this->imageId} not found.");
         }

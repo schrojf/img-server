@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Actions\GenerateVariantsAction;
 use App\Exceptions\ImageVariantGenerationException;
 use App\Exceptions\InvalidImageStateException;
+use App\Exceptions\InvalidImageValueException;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Queue\Queueable;
@@ -30,12 +31,8 @@ class GenerateImageVariantsJob implements ShouldQueue
 
         try {
             $generateVariantsAction->handle($this->imageId);
-        } catch (ImageVariantGenerationException $exception) {
+        } catch (ImageVariantGenerationException|InvalidImageValueException|InvalidImageStateException $exception) {
             Log::error($exception->getMessage(), $exception->getContext());
-            report($exception);
-        } catch (InvalidImageStateException $exception) {
-            Log::error($exception->getMessage(), $exception->context());
-            report($exception);
         } catch (ModelNotFoundException $exception) {
             Log::warning("Image with id {$this->imageId} not found.");
         }

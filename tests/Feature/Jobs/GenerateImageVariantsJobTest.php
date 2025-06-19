@@ -20,7 +20,7 @@ test('log was called when no image was found', function () {
 
 test('action with image model was called', function () {
     $image = image();
-    $image->update(['status' => ImageStatus::IMAGE_DOWNLOADED]);
+    $image->update(['status' => ImageStatus::PROCESSING]);
 
     $job = new GenerateImageVariantsJob($image->id);
 
@@ -42,5 +42,5 @@ test('action with image model was called', function () {
     $image->refresh();
 
     expect($image->last_error)->toBeNull()
-        ->and($image->status)->toBe(ImageStatus::IMAGE_DOWNLOADED);
+        ->and($image->status)->toBe(ImageStatus::PROCESSING);
 });
