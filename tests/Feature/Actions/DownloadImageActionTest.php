@@ -4,6 +4,7 @@ use App\Actions\DownloadImageAction;
 use App\Actions\GenerateRandomHashFileNameAction;
 use App\Actions\TempFileDownloadAction;
 use App\Exceptions\DownloadImageActionException;
+use App\Exceptions\InvalidImageValueException;
 use App\Models\Enums\ImageStatus;
 use App\Support\DownloadedFile;
 use App\Support\ImageFile;
@@ -91,7 +92,7 @@ test('throws if image model already has an image_file', function () {
 
     // This is checked after downloading and before its pending state is stored.
     expect(fn () => $action->handle($imageModel->id))->toThrow(
-        DownloadImageActionException::class,
+        InvalidImageValueException::class,
         "Image [ID: {$imageModel->id}] already has an image_file assigned."
     );
 });

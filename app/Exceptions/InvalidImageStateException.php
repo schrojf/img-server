@@ -3,10 +3,10 @@
 namespace App\Exceptions;
 
 use App\Models\Enums\ImageStatus;
-use Exception;
+use LogicException;
 use Throwable;
 
-class InvalidImageStateException extends Exception
+class InvalidImageStateException extends LogicException
 {
     protected array $context = [];
 
@@ -22,7 +22,7 @@ class InvalidImageStateException extends Exception
         $this->context = $context;
     }
 
-    public static function fromInvalidStateTransition(ImageStatus $current, ImageStatus $expected, array $additionalContext = []): self
+    public static function make(ImageStatus $current, ImageStatus $expected, array $additionalContext = []): self
     {
         return new self($current, $expected, context: array_merge($additionalContext, [
             'current_status' => $current->value,

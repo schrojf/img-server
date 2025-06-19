@@ -5,12 +5,12 @@ namespace App\Actions;
 use App\Data\DownloadableImage;
 use App\Exceptions\DownloadImageActionException;
 use App\Exceptions\InvalidImageStateException;
+use App\Exceptions\InvalidImageValueException;
 use App\Models\Enums\ImageStatus;
 use App\Models\Image;
 use App\Support\DownloadedFile;
 use App\Support\ImageFile;
 use App\Support\ImageStorage;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 
 class DownloadImageAction
@@ -20,12 +20,9 @@ class DownloadImageAction
         protected GenerateRandomHashFileNameAction $randomHashFileNameAction,
     ) {}
 
-    /**
-     * @throws DownloadImageActionException|InvalidImageStateException|ModelNotFoundException
-     */
     public function handle(int $imageId): ImageFile
     {
-        $imageData = $this->updateQueuedStateAndGetImageData($imageId);
+        $imageData = $this->updateQueuedStateToProcessingAndGetImageData($imageId);
 
         try {
             return $this->downloadImage($imageData);
@@ -91,7 +88,7 @@ class DownloadImageAction
         );
 
         try {
-            $this->updatePendingState($image->id, $file);
+            $this->setDownloadedImageFile($image->id, $file);
         } catch (\Throwable $e) {
             $this->clean($tmpFile);
 
@@ -128,24 +125,35 @@ class DownloadImageAction
 
         $this->clean($tmpFile);
 
-        $this->updateCompletedState($image->id);
-
         return $file;
     }
 
-    protected function updateQueuedStateAndGetImageData(int $imageId): DownloadableImage
+    protected function updateQueuedStateToProcessingAndGetImageData(int $imageId): DownloadableImage
     {
         return DB::transaction(function () use ($imageId) {
             $image = Image::lockForUpdate()->findOrFail($imageId);
 
             if ($image->status !== ImageStatus::QUEUED) {
-                throw InvalidImageStateException::fromInvalidStateTransition($image->status, ImageStatus::QUEUED, [
+                throw InvalidImageStateException::make($image->status, ImageStatus::QUEUED, [
                     'image_id' => $imageId,
+                    'caller' => static::class.'@updateQueuedStateToProcessingAndGetImageData',
                 ]);
             }
 
+            if (! empty($image->image_file)) {
+                throw InvalidImageValueException::make(
+                    "Image [ID: {$image->getKey()}] already has an image_file assigned.",
+                    context: [
+                        'image_id' => $imageId,
+                        'caller' => static::class.'@updateQueuedStateToProcessingAndGetImageData',
+                        'current_status' => $image->status->value,
+                        'image_file' => $image->image_file,
+                    ],
+                );
+            }
+
             $image->update([
-                'status' => ImageStatus::DOWNLOADING_IMAGE,
+                'status' => ImageStatus::PROCESSING,
             ]);
 
             return new DownloadableImage(
@@ -155,23 +163,24 @@ class DownloadImageAction
         });
     }
 
-    protected function updatePendingState(int $imageId, ImageFile $file): void
+    protected function setDownloadedImageFile(int $imageId, ImageFile $file): void
     {
         DB::transaction(function () use ($imageId, $file) {
             $image = Image::lockForUpdate()->findOrFail($imageId);
 
-            if ($image->status !== ImageStatus::DOWNLOADING_IMAGE) {
-                throw InvalidImageStateException::fromInvalidStateTransition($image->status, ImageStatus::DOWNLOADING_IMAGE, [
+            if ($image->status !== ImageStatus::PROCESSING) {
+                throw InvalidImageStateException::make($image->status, ImageStatus::PROCESSING, [
                     'image_id' => $imageId,
+                    'caller' => static::class.'@setDownloadedImageFile',
                 ]);
             }
 
             if (! empty($image->image_file)) {
-                // This error would be better with some invalid state or logical exception
-                throw DownloadImageActionException::make(
+                throw InvalidImageValueException::make(
                     "Image [ID: {$image->getKey()}] already has an image_file assigned.",
                     context: [
-                        'image_id' => $image->getKey(),
+                        'image_id' => $imageId,
+                        'caller' => static::class.'@setDownloadedImageFile',
                         'current_status' => $image->status->value,
                         'image_file' => $image->image_file,
                     ],
@@ -179,23 +188,6 @@ class DownloadImageAction
             }
 
             $image->image_file = $file->toArray();
-            // $image->state = ImageStatus::PERSISTING_DOWNLOADED_IMAGE; // Optional intermediate state
-            $image->save();
-        });
-    }
-
-    protected function updateCompletedState(int $imageId): void
-    {
-        DB::transaction(function () use ($imageId) {
-            $image = Image::lockForUpdate()->findOrFail($imageId);
-
-            if ($image->status !== ImageStatus::DOWNLOADING_IMAGE) {
-                throw InvalidImageStateException::fromInvalidStateTransition($image->status, ImageStatus::DOWNLOADING_IMAGE, [
-                    'image_id' => $imageId,
-                ]);
-            }
-
-            $image->status = ImageStatus::IMAGE_DOWNLOADED;
             $image->save();
         });
     }
@@ -205,9 +197,11 @@ class DownloadImageAction
         DB::transaction(function () use ($imageId, $error) {
             $image = Image::lockForUpdate()->findOrFail($imageId);
 
-            if ($image->status !== ImageStatus::DOWNLOADING_IMAGE) {
-                throw InvalidImageStateException::fromInvalidStateTransition($image->status, ImageStatus::DOWNLOADING_IMAGE, [
+            if ($image->status !== ImageStatus::PROCESSING) {
+                throw InvalidImageStateException::make($image->status, ImageStatus::PROCESSING, [
                     'image_id' => $imageId,
+                    'caller' => static::class.'@updateFailedState',
+                    'error_message' => $error,
                 ]);
             }
 
