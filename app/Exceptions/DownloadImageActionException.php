@@ -26,7 +26,7 @@ class DownloadImageActionException extends RuntimeException
     /**
      * Retrieve the context array for logging or debugging.
      */
-    public function context(): array
+    public function getContext(): array
     {
         return $this->context;
     }

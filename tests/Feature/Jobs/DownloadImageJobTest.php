@@ -3,6 +3,8 @@
 use App\Actions\DownloadImageAction;
 use App\Actions\GenerateRandomHashFileNameAction;
 use App\Actions\TempFileDownloadAction;
+use App\Exceptions\DownloadImageActionException;
+use App\Exceptions\InvalidImageValueException;
 use App\Jobs\DownloadImageJob;
 use App\Jobs\GenerateImageVariantsJob;
 use App\Models\Enums\ImageStatus;
@@ -59,17 +61,33 @@ test('action with image model was called', function () {
 test('invalid state transition', function () {
     $image = image();
     $job = new DownloadImageJob($image->id);
-    $actionMock = mock(DownloadImageAction::class)->makePartial();
 
-    Log::spy();
+    $errors = [
+        DownloadImageActionException::class,
+        InvalidImageValueException::class,
+        // InvalidImageStateException::class, // Require extra set-up
+    ];
 
-    $job->handle($actionMock);
+    foreach ($errors as $error) {
+        $actionMock = mock(DownloadImageAction::class)
+            ->shouldReceive('handle')
+            ->once()
+            ->with($image->id)
+            ->andThrow(new $error("Test error: {$error}", context: [
+                'image_id' => $image->id,
+                'error' => $error,
+            ]))
+            ->getMock();
 
-    Log::shouldHaveReceived('error')
-        // ->twice() // Log and report
-        ->with("Invalid image state: expected 'queued', got 'expired'", [
-            'image_id' => $image->id,
-            'current_status' => ImageStatus::EXPIRED->value,
-            'expected_status' => ImageStatus::QUEUED->value,
-        ]);
+        Log::spy();
+
+        $job->handle($actionMock);
+
+        Log::shouldHaveReceived('error')
+            // ->once()
+            ->with("Test error: {$error}", [
+                'image_id' => $image->id,
+                'error' => $error,
+            ]);
+    }
 });

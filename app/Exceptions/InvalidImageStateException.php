@@ -30,7 +30,7 @@ class InvalidImageStateException extends LogicException
         ]));
     }
 
-    public function context(): array
+    public function getContext(): array
     {
         return $this->context;
     }

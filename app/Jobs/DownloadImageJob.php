@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Actions\DownloadImageAction;
 use App\Exceptions\DownloadImageActionException;
 use App\Exceptions\InvalidImageStateException;
+use App\Exceptions\InvalidImageValueException;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Queue\Queueable;
@@ -30,15 +31,16 @@ class DownloadImageJob implements ShouldQueue
 
         try {
             $downloadImageAction->handle($this->imageId);
-            dispatch(new GenerateImageVariantsJob($this->imageId));
-        } catch (DownloadImageActionException $exception) {
-            Log::error($exception->getMessage(), $exception->context());
-            report($exception);
-        } catch (InvalidImageStateException $exception) {
-            Log::error($exception->getMessage(), $exception->context());
-            report($exception);
+        } catch (DownloadImageActionException|InvalidImageValueException|InvalidImageStateException $exception) {
+            Log::error($exception->getMessage(), $exception->getContext());
+
+            return;
         } catch (ModelNotFoundException $exception) {
             Log::warning("Image with id {$this->imageId} not found.");
+
+            return;
         }
+
+        dispatch(new GenerateImageVariantsJob($this->imageId));
     }
 }
