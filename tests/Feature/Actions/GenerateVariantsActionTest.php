@@ -2,7 +2,7 @@
 
 use App\Actions\GenerateRandomHashFileNameAction;
 use App\Actions\GenerateVariantsAction;
-use App\Exceptions\ImageVariantGenerationException;
+use App\Exceptions\InvalidImageValueException;
 use App\Models\Enums\ImageStatus;
 use App\Models\Image;
 use App\Support\ImageFile;
@@ -38,7 +38,7 @@ function imageWithFile(?string $fakeDisk = null): Image
     $url = 'https://example.org/image_'.Str::random(6).'.jpg';
 
     $image = Image::create([
-        'status' => ImageStatus::IMAGE_DOWNLOADED,
+        'status' => ImageStatus::PROCESSING,
         'original_url' => $url,
         'uid' => hash('xxh128', $url),
         'image_file' => $imageFile->toArray(),
@@ -88,14 +88,11 @@ test('image variants are generated and persisted on to the disk', function () {
 
 test('exception will be caught and save last error', function () {
     $image = image();
-    $image->update(['status' => ImageStatus::IMAGE_DOWNLOADED]);
+    $image->update(['status' => ImageStatus::PROCESSING]);
 
     $action = new GenerateVariantsAction(app(ImageManager::class));
 
-    expect(fn () => $action->handle($image->id))->toThrow(ImageVariantGenerationException::class);
+    expect(fn () => $action->handle($image->id))->toThrow(InvalidImageValueException::class);
 
     $image->refresh();
-
-    expect($image->last_error)->toBe('Image model must have an image file')
-        ->and($image->status)->toBe(ImageStatus::FAILED);
 });

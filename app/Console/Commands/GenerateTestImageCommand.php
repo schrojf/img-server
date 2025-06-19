@@ -66,7 +66,7 @@ class GenerateTestImageCommand extends Command
         $url = 'https://example.org/image_'.Str::random(6).'.jpg';
 
         $image = Image::create([
-            'status' => ImageStatus::IMAGE_DOWNLOADED,
+            'status' => ImageStatus::PROCESSING,
             'original_url' => $url,
             'uid' => hash('xxh128', $url),
             'image_file' => $imageFile->toArray(),

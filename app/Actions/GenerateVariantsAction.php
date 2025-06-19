@@ -4,6 +4,7 @@ namespace App\Actions;
 
 use App\Exceptions\ImageVariantGenerationException;
 use App\Exceptions\InvalidImageStateException;
+use App\Exceptions\InvalidImageValueException;
 use App\Models\Enums\ImageStatus;
 use App\Models\Image;
 use App\Support\ImageFile;
@@ -20,11 +21,9 @@ class GenerateVariantsAction
 
     public function handle(int $imageId): array
     {
-        $image = $this->updateQueuedStateAndGetImage($imageId);
+        $image = $this->findAndValidateDownloadImageModel($imageId);
 
         try {
-            $this->validateImageModel($image);
-
             $imageFile = ImageFile::fromModel($image);
             $this->validateSourceImage($imageFile);
 
@@ -36,40 +35,43 @@ class GenerateVariantsAction
         }
     }
 
-    protected function updateQueuedStateAndGetImage(int $imageId): Image
+    protected function findAndValidateDownloadImageModel(int $imageId): Image
     {
         return DB::transaction(function () use ($imageId) {
             $image = Image::lockForUpdate()->findOrFail($imageId);
 
-            if ($image->status !== ImageStatus::IMAGE_DOWNLOADED) {
-                throw InvalidImageStateException::fromInvalidStateTransition($image->status, ImageStatus::IMAGE_DOWNLOADED, [
+            if ($image->status !== ImageStatus::PROCESSING) {
+                throw InvalidImageStateException::make($image->status, ImageStatus::PROCESSING, [
                     'image_id' => $imageId,
+                    'caller' => static::class.'@findAndValidateDownloadImageModel',
                 ]);
             }
 
-            $image->update([
-                'status' => ImageStatus::GENERATING_VARIANTS,
-            ]);
+            if (empty($image->image_file)) {
+                throw InvalidImageValueException::make(
+                    "Image [ID: {$image->id}] must have an image_file.",
+                    context: [
+                        'image_id' => $imageId,
+                        'caller' => static::class.'@findAndValidateDownloadImageModel',
+                        'current_status' => $image->status->value,
+                    ],
+                );
+            }
+
+            if (! empty($image->variant_files)) {
+                throw InvalidImageValueException::make(
+                    "Image [ID: {$image->id}] already has a variant_files assigned.",
+                    context: [
+                        'image_id' => $imageId,
+                        'caller' => static::class.'@findAndValidateDownloadImageModel',
+                        'current_status' => $image->status->value,
+                        'variant_files' => $image->variant_files,
+                    ],
+                );
+            }
 
             return $image;
         });
-    }
-
-    protected function validateImageModel(Image $imageModel): void
-    {
-        if (! $imageModel->exists) {
-            throw new \InvalidArgumentException('Image model must exist in database');
-        }
-
-        if (empty($imageModel->image_file)) {
-            throw new ImageVariantGenerationException('Image model must have an image file', context: [
-                'image_id' => $imageModel->id,
-            ]);
-        }
-
-        if (! empty($imageModel->variant_files)) {
-            throw ImageVariantGenerationException::variantsAlreadyExist($imageModel);
-        }
     }
 
     protected function validateSourceImage(ImageFile $imageFile): void
@@ -132,31 +134,30 @@ class GenerateVariantsAction
         DB::transaction(function () use ($imageId, $pendingVariants) {
             $image = Image::lockForUpdate()->findOrFail($imageId);
 
-            if ($image->status !== ImageStatus::GENERATING_VARIANTS) {
-                throw InvalidImageStateException::fromInvalidStateTransition($image->status, ImageStatus::GENERATING_VARIANTS, [
+            if ($image->status !== ImageStatus::PROCESSING) {
+                throw InvalidImageStateException::make($image->status, ImageStatus::PROCESSING, [
                     'image_id' => $imageId,
+                    'caller' => static::class.'@updatePendingState',
                 ]);
             }
 
             if (! empty($image->variant_files)) {
-                // This error would be better with some invalid state or logical exception
-                throw ImageVariantGenerationException::variantsAlreadyExist($image);
+                throw InvalidImageValueException::make(
+                    "Image [ID: {$image->id}] already has a variant_files assigned.",
+                    context: [
+                        'image_id' => $imageId,
+                        'caller' => static::class.'@updatePendingState',
+                        'current_status' => $image->status->value,
+                        'variant_files' => $image->variant_files,
+                    ],
+                );
             }
 
             $image->variant_files = [
                 '_pending' => $pendingVariants->getPendingFiles(),
             ];
-            // Optional intermediate state: $image->state = ImageStatus::PERSISTING_GENERATED_VARIANTS;
 
-            try {
-                $image->save();
-            } catch (\Throwable $e) {
-                throw ImageVariantGenerationException::databaseUpdateFailed(
-                    $image->id,
-                    "update pending state for image: {$image->id}",
-                    $e
-                );
-            }
+            $image->save();
         });
     }
 
@@ -165,13 +166,12 @@ class GenerateVariantsAction
         DB::transaction(function () use ($imageId, $generatedVariants) {
             $image = Image::lockForUpdate()->findOrFail($imageId);
 
-            if ($image->status !== ImageStatus::GENERATING_VARIANTS) {
-                throw InvalidImageStateException::fromInvalidStateTransition($image->status, ImageStatus::GENERATING_VARIANTS, [
+            if ($image->status !== ImageStatus::PROCESSING) {
+                throw InvalidImageStateException::make($image->status, ImageStatus::PROCESSING, [
                     'image_id' => $imageId,
+                    'caller' => static::class.'@updateCompletedState',
                 ]);
             }
-
-            // Optional: Check if all $image->variant_files['_pending'] files are the same as $generatedVariants
 
             $image->status = ImageStatus::DONE;
             $image->variant_files = $generatedVariants;
@@ -184,9 +184,10 @@ class GenerateVariantsAction
         DB::transaction(function () use ($imageId, $errorMessage) {
             $image = Image::lockForUpdate()->findOrFail($imageId);
 
-            if ($image->status !== ImageStatus::GENERATING_VARIANTS) {
-                throw InvalidImageStateException::fromInvalidStateTransition($image->status, ImageStatus::GENERATING_VARIANTS, [
+            if ($image->status !== ImageStatus::PROCESSING) {
+                throw InvalidImageStateException::make($image->status, ImageStatus::PROCESSING, [
                     'image_id' => $image->id,
+                    'caller' => static::class.'@updateFailedState',
                     'error_message' => $errorMessage,
                 ]);
             }
