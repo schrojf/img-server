@@ -59,9 +59,7 @@ test('only one image was created', function () {
 
     $response->assertStatus(201)
         ->assertJson([
-            'image' => [
-                'original_url' => 'https://example.com/image.jpg',
-            ],
+            'original_url' => 'https://example.com/image.jpg',
             'is_new' => true,
         ]);
 
@@ -71,9 +69,7 @@ test('only one image was created', function () {
 
     $response->assertStatus(200)
         ->assertJson([
-            'image' => [
-                'original_url' => 'https://example.com/image.jpg',
-            ],
+            'original_url' => 'https://example.com/image.jpg',
             'is_new' => false,
         ]);
 
@@ -96,4 +92,24 @@ test('image download job was dispatched', function () {
     Queue::assertPushed(DownloadImageJob::class, function (DownloadImageJob $job) {
         return Image::findOrFail($job->imageId)->original_url === 'https://example.com/image_job.webp';
     });
+});
+
+test('images show', function () {
+    $image = image();
+
+    $response = $this
+        ->actingAs(user())
+        ->getJson('/api/images/'.$image->id);
+
+    $response->assertStatus(200)
+        ->assertJson([
+            'id' => $image->id,
+            'original_url' => $image->original_url,
+        ]);
+});
+
+test('only authorized user can view image', function () {
+    $response = $this->getJson('/api/images/123');
+
+    $response->assertUnauthorized();
 });

@@ -7,6 +7,7 @@ use App\Models\Enums\ImageStatus;
 use App\Models\Image;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class ImageApiController extends Controller
 {
@@ -43,8 +44,12 @@ class ImageApiController extends Controller
         }
 
         return response()->json([
+            'id' => $image->id,
             'status' => $image->status,
-            'image' => $image,
+            'uid' => $image->uid,
+            'original_url' => $image->original_url,
+            'last_error' => $image->last_error,
+            'variants' => $this->toVariantsArray($image),
             'is_new' => $image->wasRecentlyCreated,
         ], $image->wasRecentlyCreated ? 201 : 200);
     }
@@ -54,7 +59,16 @@ class ImageApiController extends Controller
      */
     public function show(int $id)
     {
-        //
+        $image = Image::findOrFail($id);
+
+        return response()->json([
+            'id' => $image->id,
+            'status' => $image->status,
+            'uid' => $image->uid,
+            'original_url' => $image->original_url,
+            'last_error' => $image->last_error,
+            'variants' => $this->toVariantsArray($image),
+        ]);
     }
 
     /**
@@ -71,5 +85,24 @@ class ImageApiController extends Controller
     public function destroy(int $id)
     {
         //
+    }
+
+    /**
+     * Transform generated image variants into the API response array.
+     */
+    protected function toVariantsArray(Image $image): array
+    {
+        if ($image->status !== ImageStatus::DONE) {
+            return [];
+        }
+
+        $variants = [];
+        foreach ($image->variant_files as $variant => $formats) {
+            foreach ($formats as $format => $file) {
+                $variants[$variant][$format] = Storage::disk($file['disk'])->url($file['fileName']);
+            }
+        }
+
+        return $variants;
     }
 }
