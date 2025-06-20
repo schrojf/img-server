@@ -17,6 +17,10 @@ return [
         'tmpPrefix' => 'image-server-',
     ],
 
+    'jobs' => [
+        'autoExpire' => false,
+    ],
+
     'driver' => env('INTERVENTION_IMAGE_DRIVE', 'Gd'),
 
     'avif' => env('AVIF_ENABLED', false),
