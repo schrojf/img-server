@@ -123,7 +123,7 @@ class ImageApiController extends Controller
         $variants = [];
         foreach ($image->variant_files as $variant => $formats) {
             foreach ($formats as $format => $file) {
-                $variants[$variant][$format] = Storage::disk($file['disk'])->url($file['fileName']);
+                $variants[$variant][$format] = Storage::disk($file['disk'])->url($file['file_name']);
             }
         }
 

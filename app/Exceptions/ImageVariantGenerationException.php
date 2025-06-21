@@ -26,7 +26,7 @@ class ImageVariantGenerationException extends RuntimeException
             "Source image file not found on disk '{$disk}': {$fileName}",
             1001,
             null,
-            ['disk' => $disk, 'fileName' => $fileName]
+            ['disk' => $disk, 'file_name' => $fileName]
         );
     }
 
@@ -36,7 +36,7 @@ class ImageVariantGenerationException extends RuntimeException
             "Source image file cannot be read from disk '{$disk}': {$fileName}",
             1002,
             $previous,
-            ['disk' => $disk, 'fileName' => $fileName]
+            ['disk' => $disk, 'file_name' => $fileName]
         );
     }
 
@@ -66,7 +66,7 @@ class ImageVariantGenerationException extends RuntimeException
             "Failed to save variant '{$variantName}' file to disk '{$disk}': {$fileName}",
             1005,
             null,
-            ['disk' => $disk, 'fileName' => $fileName, 'variant' => $variantName]
+            ['disk' => $disk, 'file_name' => $fileName, 'variant' => $variantName]
         );
     }
 }
