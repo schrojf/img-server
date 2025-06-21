@@ -29,7 +29,10 @@ class PendingVariants
 
         /** @var ImageVariant $imageVariant */
         foreach ($this->imageVariants as $imageVariant) {
-            $pendingFiles = array_merge($pendingFiles, $imageVariant->simulatedEncodedFiles($this->baseFileName));
+            $pendingFiles = array_merge($pendingFiles, array_map(fn (string $fileName) => [
+                'disk' => $this->targetDisk,
+                'file_name' => $fileName,
+            ], $imageVariant->simulatedEncodedFiles($this->baseFileName)));
         }
 
         return $pendingFiles;
@@ -80,7 +83,7 @@ class PendingVariants
 
                 $this->persistedFiles[] = [
                     'disk' => $this->targetDisk,
-                    'fileName' => $fileName,
+                    'file_name' => $fileName,
                 ];
 
                 $encodedFiles[$pendingEncodings->variantName][$extension] = new ImageFile(
@@ -104,8 +107,8 @@ class PendingVariants
         foreach ($this->persistedFiles as $file) {
             try {
                 $disk = Storage::disk($file['disk']);
-                if ($disk->exists($file['fileName'])) {
-                    $disk->delete($file['fileName']);
+                if ($disk->exists($file['file_name'])) {
+                    $disk->delete($file['file_name']);
                     Log::debug('Cleaned up partial file', $file);
                 }
             } catch (\Throwable $e) {

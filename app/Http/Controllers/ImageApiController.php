@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\DeleteImageAction;
 use App\Jobs\DownloadImageJob;
 use App\Models\Enums\ImageStatus;
 use App\Models\Image;
@@ -17,6 +18,12 @@ class ImageApiController extends Controller
     public function index(): JsonResponse
     {
         return response()->json([
+            'queued' => Image::where('status', ImageStatus::QUEUED)->count(),
+            'processing' => Image::where('status', ImageStatus::PROCESSING)->count(),
+            'done' => Image::where('status', ImageStatus::DONE)->count(),
+            'failed' => Image::where('status', ImageStatus::FAILED)->count(),
+            'expired' => Image::where('status', ImageStatus::EXPIRED)->count(),
+            'deleting' => Image::where('status', ImageStatus::DELETING)->count(),
             'total' => Image::count(),
         ]);
     }
@@ -38,6 +45,8 @@ class ImageApiController extends Controller
             'status' => ImageStatus::QUEUED,
             'original_url' => $data['url'],
         ]);
+
+        abort_if($image->status === ImageStatus::DELETING, 404);
 
         if ($image->wasRecentlyCreated) {
             dispatch(new DownloadImageJob($image->id));
@@ -61,6 +70,8 @@ class ImageApiController extends Controller
     {
         $image = Image::findOrFail($id);
 
+        abort_if($image->status === ImageStatus::DELETING, 404);
+
         return response()->json([
             'id' => $image->id,
             'status' => $image->status,
@@ -82,9 +93,22 @@ class ImageApiController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(int $id)
+    public function destroy(int $id, DeleteImageAction $deleteImageAction)
     {
-        //
+        $image = Image::findOrFail($id);
+
+        abort_if($image->status === ImageStatus::DELETING, 404);
+
+        // if ($image->status !== ImageStatus::PROCESSING) {
+        //     response()->json([
+        //         'error' => true,
+        //         'message' => 'Resource is locked.',
+        //     ], 503);
+        // }
+
+        $deleteImageAction->handle($image->id);
+
+        return response()->noContent();
     }
 
     /**

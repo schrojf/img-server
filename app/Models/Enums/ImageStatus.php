@@ -14,6 +14,8 @@ enum ImageStatus: string
 
     case EXPIRED = 'expired';
 
+    case DELETING = 'deleting';
+
     public function isProcessing(): bool
     {
         return in_array($this, [self::QUEUED, self::PROCESSING]);
