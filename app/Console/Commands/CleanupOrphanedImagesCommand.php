@@ -58,8 +58,12 @@ class CleanupOrphanedImagesCommand extends Command
             if ($dryRun) {
                 $this->warn("Would delete orphaned file: {$fileName}");
             } else {
-                $disk->delete($fileName);
-                $this->info("Deleted orphaned file: {$fileName}");
+                try {
+                    $disk->delete($fileName);
+                    $this->info("Deleted orphaned file: {$fileName}");
+                } catch (\Exception $e) {
+                    $this->error("Failed to delete {$fileName}: {$e->getMessage()}");
+                }
             }
         }
 
@@ -92,8 +96,12 @@ class CleanupOrphanedImagesCommand extends Command
             if ($dryRun) {
                 $this->warn("Would delete orphaned variant: {$fileName}");
             } else {
-                $disk->delete($fileName);
-                $this->info("Deleted orphaned variant: {$fileName}");
+                try {
+                    $disk->delete($fileName);
+                    $this->info("Deleted orphaned variant: {$fileName}");
+                } catch (\Exception $e) {
+                    $this->error("Failed to delete {$fileName}: {$e->getMessage()}");
+                }
             }
         }
 
