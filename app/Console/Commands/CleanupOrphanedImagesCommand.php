@@ -13,38 +13,39 @@ class CleanupOrphanedImagesCommand extends Command
 
     /**
      * The name and signature of the console command.
-     *
-     * @var string
      */
-    protected $signature = 'images:cleanup-orphaned';
+    protected $signature = 'images:cleanup-orphaned {--d|dry-run : List orphaned files but do not delete them}';
 
     /**
      * The console command description.
-     *
-     * @var string
      */
-    protected $description = 'Remove orphaned image files from storage';
+    protected $description = 'Remove orphaned image and variant files from storage';
 
     /**
      * Execute the console command.
      */
     public function handle(): int
     {
-        $this->checkForOrphanedImageFiles();
-        $this->checkForOrphanedVariants();
+        $isDryRun = $this->option('dry-run');
 
-        $this->info("Cleanup completed.");
+        $this->line($isDryRun ? '🔍 Running in dry-run mode. No files will be deleted.' : '🧹 Running cleanup of orphaned files...');
+
+        $images = $this->checkForOrphanedImageFiles($isDryRun);
+        $variants = $this->checkForOrphanedVariants($isDryRun);
+
+        $this->info("✅ Cleanup completed. Orphaned files handled: {$images} originals, {$variants} variants.");
 
         return self::SUCCESS;
     }
 
-    protected function checkForOrphanedImageFiles(): void
+    protected function checkForOrphanedImageFiles(bool $dryRun): int
     {
         $disk = ImageStorage::originalDisk();
+        $orphanedCount = 0;
 
-        // Check original images
-        $originalFiles = $disk->files(recursive: true);
-        foreach ($originalFiles as $fileName) {
+        $this->line('🔎 Scanning original image files...');
+
+        foreach ($disk->files(recursive: true) as $fileName) {
             if (in_array($fileName, self::IGNORED_FILES)) {
                 continue;
             }
@@ -53,21 +54,26 @@ class CleanupOrphanedImagesCommand extends Command
                 continue;
             }
 
-            if ($disk->exists($fileName)) {
+            $orphanedCount++;
+            if ($dryRun) {
+                $this->warn("Would delete orphaned file: {$fileName}");
+            } else {
                 $disk->delete($fileName);
+                $this->info("Deleted orphaned file: {$fileName}");
             }
-
-            $this->info("Deleted orphaned file: {$fileName}");
         }
+
+        return $orphanedCount;
     }
 
-    protected function checkForOrphanedVariants(): void
+    protected function checkForOrphanedVariants(bool $dryRun): int
     {
         $disk = ImageStorage::variantDisk();
+        $orphanedCount = 0;
 
-        // Check variant files
-        $variantFiles = $disk->files(recursive: true);
-        foreach ($variantFiles as $fileName) {
+        $this->line('🔎 Scanning variant files...');
+
+        foreach ($disk->files(recursive: true) as $fileName) {
             if (in_array($fileName, self::IGNORED_FILES)) {
                 continue;
             }
@@ -82,11 +88,15 @@ class CleanupOrphanedImagesCommand extends Command
                 }
             }
 
-            if ($disk->exists($fileName)) {
+            $orphanedCount++;
+            if ($dryRun) {
+                $this->warn("Would delete orphaned variant: {$fileName}");
+            } else {
                 $disk->delete($fileName);
+                $this->info("Deleted orphaned variant: {$fileName}");
             }
-
-            $this->info("Deleted orphaned variant: {$fileName}");
         }
+
+        return $orphanedCount;
     }
 }
