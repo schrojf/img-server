@@ -21,7 +21,7 @@ class GenerateVariantsAction
 
     public function handle(int $imageId): array
     {
-        $image = $this->findAndValidateDownloadImageModel($imageId);
+        $image = $this->updateQueuedStateToProcessingAndGetValidImage($imageId);
 
         try {
             $imageFile = ImageFile::fromModel($image);
@@ -35,15 +35,15 @@ class GenerateVariantsAction
         }
     }
 
-    protected function findAndValidateDownloadImageModel(int $imageId): Image
+    protected function updateQueuedStateToProcessingAndGetValidImage(int $imageId): Image
     {
         return DB::transaction(function () use ($imageId) {
             $image = Image::lockForUpdate()->findOrFail($imageId);
 
-            if ($image->status !== ImageStatus::PROCESSING) {
-                throw InvalidImageStateException::make($image->status, ImageStatus::PROCESSING, [
+            if ($image->status !== ImageStatus::QUEUED) {
+                throw InvalidImageStateException::make($image->status, ImageStatus::QUEUED, [
                     'image_id' => $imageId,
-                    'caller' => static::class.'@findAndValidateDownloadImageModel',
+                    'caller' => static::class.'@updateQueuedStateToProcessingAndGetValidImage',
                 ]);
             }
 
@@ -52,7 +52,7 @@ class GenerateVariantsAction
                     "Image [ID: {$image->id}] must have an image_file.",
                     context: [
                         'image_id' => $imageId,
-                        'caller' => static::class.'@findAndValidateDownloadImageModel',
+                        'caller' => static::class.'@updateQueuedStateToProcessingAndGetValidImage',
                         'current_status' => $image->status->value,
                     ],
                 );
@@ -63,12 +63,16 @@ class GenerateVariantsAction
                     "Image [ID: {$image->id}] already has a variant_files assigned.",
                     context: [
                         'image_id' => $imageId,
-                        'caller' => static::class.'@findAndValidateDownloadImageModel',
+                        'caller' => static::class.'@updateQueuedStateToProcessingAndGetValidImage',
                         'current_status' => $image->status->value,
                         'variant_files' => $image->variant_files,
                     ],
                 );
             }
+
+            $image->update([
+                'status' => ImageStatus::PROCESSING,
+            ]);
 
             return $image;
         });

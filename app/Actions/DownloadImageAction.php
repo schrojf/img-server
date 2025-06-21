@@ -125,6 +125,8 @@ class DownloadImageAction
 
         $this->clean($tmpFile);
 
+        $this->updateDownloadedState($image->id);
+
         return $file;
     }
 
@@ -208,6 +210,24 @@ class DownloadImageAction
             $image->status = ImageStatus::FAILED;
             $image->last_error = $error;
             $image->save();
+        });
+    }
+
+    protected function updateDownloadedState($imageId): void
+    {
+        DB::transaction(function () use ($imageId) {
+            $image = Image::lockForUpdate()->findOrFail($imageId);
+
+            if ($image->status !== ImageStatus::PROCESSING) {
+                throw InvalidImageStateException::make($image->status, ImageStatus::PROCESSING, [
+                    'image_id' => $imageId,
+                    'caller' => static::class.'@updateDownloadedState',
+                ]);
+            }
+
+            $image->update([
+                'status' => ImageStatus::QUEUED,
+            ]);
         });
     }
 

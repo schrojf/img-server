@@ -38,7 +38,7 @@ function imageWithFile(?string $fakeDisk = null): Image
     $url = 'https://example.org/image_'.Str::random(6).'.jpg';
 
     $image = Image::create([
-        'status' => ImageStatus::PROCESSING,
+        'status' => ImageStatus::QUEUED,
         'original_url' => $url,
         'uid' => hash('xxh128', $url),
         'image_file' => $imageFile->toArray(),
@@ -88,7 +88,7 @@ test('image variants are generated and persisted on to the disk', function () {
 
 test('exception will be caught and save last error', function () {
     $image = image();
-    $image->update(['status' => ImageStatus::PROCESSING]);
+    $image->update(['status' => ImageStatus::QUEUED]);
 
     $action = new GenerateVariantsAction(app(ImageManager::class));
 
