@@ -31,7 +31,9 @@ class GenerateImageVariantsJob implements ShouldQueue
 
         try {
             $generateVariantsAction->handle($this->imageId);
-        } catch (ImageVariantGenerationException|InvalidImageValueException|InvalidImageStateException $exception) {
+        } catch (InvalidImageValueException|InvalidImageStateException $exception) {
+            Log::critical($exception->getMessage(), $exception->getContext());
+        } catch (ImageVariantGenerationException $exception) {
             Log::error($exception->getMessage(), $exception->getContext());
         } catch (ModelNotFoundException $exception) {
             Log::warning("Image with id {$this->imageId} not found.");

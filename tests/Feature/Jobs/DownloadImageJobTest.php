@@ -63,12 +63,12 @@ test('invalid state transition', function () {
     $job = new DownloadImageJob($image->id);
 
     $errors = [
-        DownloadImageActionException::class,
-        InvalidImageValueException::class,
-        // InvalidImageStateException::class, // Require extra set-up
+        DownloadImageActionException::class => 'error',
+        InvalidImageValueException::class => 'critical',
+        // InvalidImageStateException::class => 'critical',, // Require extra set-up
     ];
 
-    foreach ($errors as $error) {
+    foreach ($errors as $error => $method) {
         $actionMock = mock(DownloadImageAction::class)
             ->shouldReceive('handle')
             ->once()
@@ -83,8 +83,8 @@ test('invalid state transition', function () {
 
         $job->handle($actionMock);
 
-        Log::shouldHaveReceived('error')
-            // ->once()
+        Log::shouldHaveReceived($method)
+            ->once()
             ->with("Test error: {$error}", [
                 'image_id' => $image->id,
                 'error' => $error,

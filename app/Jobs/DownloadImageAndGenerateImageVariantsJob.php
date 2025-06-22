@@ -35,7 +35,9 @@ class DownloadImageAndGenerateImageVariantsJob
         try {
             $downloadImageAction->handle($this->imageId);
             $generateVariantsAction->handle($this->imageId);
-        } catch (DownloadImageActionException|ImageVariantGenerationException|InvalidImageValueException|InvalidImageStateException $exception) {
+        } catch (InvalidImageValueException|InvalidImageStateException $exception) {
+            Log::critical($exception->getMessage(), $exception->getContext());
+        } catch (DownloadImageActionException|ImageVariantGenerationException $exception) {
             Log::error($exception->getMessage(), $exception->getContext());
         } catch (ModelNotFoundException $exception) {
             Log::warning("Image with id {$this->imageId} not found.");

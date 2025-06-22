@@ -31,7 +31,11 @@ class DownloadImageJob implements ShouldQueue
 
         try {
             $downloadImageAction->handle($this->imageId);
-        } catch (DownloadImageActionException|InvalidImageValueException|InvalidImageStateException $exception) {
+        } catch (InvalidImageValueException|InvalidImageStateException $exception) {
+            Log::critical($exception->getMessage(), $exception->getContext());
+
+            return;
+        } catch (DownloadImageActionException $exception) {
             Log::error($exception->getMessage(), $exception->getContext());
 
             return;
