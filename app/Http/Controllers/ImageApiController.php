@@ -59,6 +59,8 @@ class ImageApiController extends Controller
             'original_url' => $image->original_url,
             'last_error' => $image->last_error,
             'variants' => $this->toVariantsArray($image),
+            'downloaded_at' => $image->downloaded_at?->toISOString(),
+            'processed_at' => $image->processed_at?->toISOString(),
             'is_new' => $image->wasRecentlyCreated,
         ], $image->wasRecentlyCreated ? 201 : 200);
     }
@@ -79,6 +81,8 @@ class ImageApiController extends Controller
             'original_url' => $image->original_url,
             'last_error' => $image->last_error,
             'variants' => $this->toVariantsArray($image),
+            'downloaded_at' => $image->downloaded_at?->toISOString(),
+            'processed_at' => $image->processed_at?->toISOString(),
         ]);
     }
 

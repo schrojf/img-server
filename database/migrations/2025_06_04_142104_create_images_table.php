@@ -19,6 +19,8 @@ return new class extends Migration
             $table->json('image_file')->nullable();
             $table->json('variant_files')->nullable();
             $table->text('last_error')->nullable();
+            $table->timestamp('downloaded_at')->nullable();
+            $table->timestamp('processed_at')->nullable();
             $table->timestamps();
         });
     }

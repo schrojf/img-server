@@ -157,11 +157,9 @@ class GenerateVariantsAction
                 );
             }
 
-            $image->variant_files = [
-                '_pending' => $pendingVariants->getPendingFiles(),
-            ];
-
-            $image->save();
+            $image->update([
+                'variant_files' => ['_pending' => $pendingVariants->getPendingFiles()],
+            ]);
         });
     }
 
@@ -177,9 +175,11 @@ class GenerateVariantsAction
                 ]);
             }
 
-            $image->status = ImageStatus::DONE;
-            $image->variant_files = $generatedVariants;
-            $image->save();
+            $image->update([
+                'status' => ImageStatus::DONE,
+                'variant_files' => $generatedVariants,
+                'processed_at' => now(),
+            ]);
         });
     }
 
@@ -196,9 +196,10 @@ class GenerateVariantsAction
                 ]);
             }
 
-            $image->status = ImageStatus::FAILED;
-            $image->last_error = $errorMessage;
-            $image->save();
+            $image->update([
+                'status' => ImageStatus::FAILED,
+                'last_error' => $errorMessage,
+            ]);
         });
     }
 }

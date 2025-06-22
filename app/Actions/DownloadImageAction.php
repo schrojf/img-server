@@ -189,8 +189,9 @@ class DownloadImageAction
                 );
             }
 
-            $image->image_file = $file->toArray();
-            $image->save();
+            $image->update([
+                'image_file' => $file->toArray(),
+            ]);
         });
     }
 
@@ -207,9 +208,10 @@ class DownloadImageAction
                 ]);
             }
 
-            $image->status = ImageStatus::FAILED;
-            $image->last_error = $error;
-            $image->save();
+            $image->update([
+                'status' => ImageStatus::FAILED,
+                'last_error' => $error,
+            ]);
         });
     }
 
@@ -227,6 +229,7 @@ class DownloadImageAction
 
             $image->update([
                 'status' => ImageStatus::QUEUED,
+                'downloaded_at' => now(),
             ]);
         });
     }

@@ -16,11 +16,15 @@ class Image extends Model
         'image_file',
         'variant_files',
         'last_error',
+        'downloaded_at',
+        'processed_at',
     ];
 
     protected $casts = [
         'status' => ImageStatus::class,
         'image_file' => 'array',
         'variant_files' => 'array',
+        'downloaded_at' => 'datetime',
+        'processed_at' => 'datetime',
     ];
 }
