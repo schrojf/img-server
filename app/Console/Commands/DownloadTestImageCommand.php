@@ -3,14 +3,12 @@
 namespace App\Console\Commands;
 
 use App\Actions\DownloadImageAction;
-use App\Actions\GenerateRandomHashFileNameAction;
-use App\Actions\TempFileDownloadAction;
-use App\Jobs\DownloadImageJob;
+use App\Actions\GenerateVariantsAction;
+use App\Jobs\DownloadImageAndGenerateImageVariantsJob;
 use App\Models\Enums\ImageStatus;
 use App\Models\Image;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\App;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Number;
 use Illuminate\Support\Str;
 
@@ -40,7 +38,7 @@ class DownloadTestImageCommand extends Command
     /**
      * Execute the console command.
      */
-    public function handle()
+    public function handle(DownloadImageAction $downloadImageAction, GenerateVariantsAction $generateVariantsAction): int
     {
         if (App::environment('production')) {
             $this->warn('❌ This command is not allowed in the production environment.');
@@ -64,17 +62,11 @@ class DownloadTestImageCommand extends Command
             'uid' => hash('xxh128', $url.Str::random()),
         ]);
 
-        $downloadImageAction = new DownloadImageAction(
-            new TempFileDownloadAction,
-            new GenerateRandomHashFileNameAction,
-        );
-
         if (false) {
             $result = $downloadImageAction->handle($image);
         } else {
-            Config::set('queue.default', 'sync');
-            $downloadImageJob = new DownloadImageJob($image->id);
-            $downloadImageJob->handle($downloadImageAction);
+            $downloadImageJob = new DownloadImageAndGenerateImageVariantsJob($image->id);
+            $downloadImageJob->handle($downloadImageAction, $generateVariantsAction);
         }
 
         $this->info('✅ Test image downloaded and variants generated successfully.');
