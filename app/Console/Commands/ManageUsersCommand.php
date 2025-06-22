@@ -10,7 +10,7 @@ use Illuminate\Validation\Rules\Password;
 
 class ManageUsersCommand extends Command
 {
-    protected $signature = 'manage:users {action?} {--email=} {--name=} {--password=} {--force}';
+    protected $signature = 'manage:users {action?} {--email=} {--id=} {--name=} {--password=} {--force}';
 
     protected $description = 'Manage users (create, list, show, update, delete, reset-password)';
 
@@ -56,19 +56,38 @@ class ManageUsersCommand extends Command
         $this->error('Not enough arguments (missing: "action").');
         $this->newLine();
         $this->info('Available actions:');
-
         foreach ($this->availableActions as $action => $description) {
             $this->line("  <fg=green>{$action}</> - {$description}");
         }
 
         $this->newLine();
         $this->info('Usage examples:');
-        $this->line('  php artisan user:manage create');
-        $this->line('  php artisan user:manage list');
-        $this->line('  php artisan user:manage show');
-        $this->line('  php artisan user:manage update --email=user@example.com');
-        $this->line('  php artisan user:manage delete');
-        $this->line('  php artisan user:manage reset-password');
+        $this->line('  php artisan manage:users create');
+        $this->line('  php artisan manage:users update --email=user@example.com');
+        $this->line('  php artisan manage:users show --id=1');
+    }
+
+    protected function selectUser(string $message): ?User
+    {
+        $input = $this->option('id') ?? $this->option('email') ?? $this->ask($message.' (enter email or ID)');
+
+        if (! $input) {
+            $this->error('A user identifier is required.');
+
+            return null;
+        }
+
+        $user = is_numeric($input)
+            ? User::find((int) $input)
+            : User::where('email', $input)->first();
+
+        if (! $user) {
+            $this->error("User not found with input: {$input}");
+
+            return null;
+        }
+
+        return $user;
     }
 
     protected function createUser(): int
@@ -76,7 +95,6 @@ class ManageUsersCommand extends Command
         $this->info('Creating a new user...');
         $this->newLine();
 
-        // Get user input with retry mechanism
         $name = $this->getValidatedInput('name', 'Enter name', ['required', 'string', 'max:255']);
         if ($name === null) {
             return self::FAILURE;
@@ -87,8 +105,7 @@ class ManageUsersCommand extends Command
             return self::FAILURE;
         }
 
-        // Handle password - auto-generate if not provided
-        $password = $this->option('password') ?: $this->ask('Enter password (leave empty to auto-generate)');
+        $password = $this->option('password') ?? $this->ask('Enter password (leave empty to auto-generate)');
         $isGenerated = false;
 
         if (empty($password)) {
@@ -96,19 +113,12 @@ class ManageUsersCommand extends Command
             $isGenerated = true;
             $this->info("Auto-generated password: <fg=yellow>{$password}</>");
         } else {
-            // Validate password if provided
-            $passwordValidation = $this->validateInput($password, [Password::min(8)->letters()->mixedCase()->numbers()]);
-            while ($passwordValidation !== true) {
-                $this->error($passwordValidation);
-                $password = $this->askWithRetry('Enter a valid password');
-                if ($password === null) {
-                    return self::FAILURE;
-                }
-                $passwordValidation = $this->validateInput($password, [Password::min(8)->letters()->mixedCase()->numbers()]);
+            $password = $this->validatePasswordWithRetry($password);
+            if (! $password) {
+                return self::FAILURE;
             }
         }
 
-        // Ask if email should be verified
         $emailVerified = $this->confirm('Mark email as verified?', true);
 
         try {
@@ -123,7 +133,6 @@ class ManageUsersCommand extends Command
                 $user->save();
             }
 
-            $this->newLine();
             $this->info('✅ User created successfully!');
             $this->displayUserInfo($user, $isGenerated ? $password : null);
 
@@ -182,11 +191,9 @@ class ManageUsersCommand extends Command
         }
 
         $this->info("Updating user: {$user->name} ({$user->email})");
-        $this->newLine();
 
         $updateData = [];
 
-        // Update name
         if ($this->confirm('Update name?', false)) {
             $name = $this->getValidatedInput('name', "Enter new name (current: {$user->name})", ['required', 'string', 'max:255']);
             if ($name === null) {
@@ -195,7 +202,6 @@ class ManageUsersCommand extends Command
             $updateData['name'] = $name;
         }
 
-        // Update email
         if ($this->confirm('Update email?', false)) {
             $email = $this->getValidatedInput('email', "Enter new email (current: {$user->email})", ['required', 'email', "unique:users,email,{$user->id}"]);
             if ($email === null) {
@@ -204,7 +210,6 @@ class ManageUsersCommand extends Command
             $updateData['email'] = $email;
         }
 
-        // Update email verification
         if ($this->confirm('Update email verification status?', false)) {
             $verified = $this->confirm('Mark email as verified?', $user->email_verified_at !== null);
             $user->email_verified_at = $verified ? now() : null;
@@ -214,8 +219,7 @@ class ManageUsersCommand extends Command
             if (! empty($updateData)) {
                 $user->update($updateData);
             }
-            $user->save(); // Save email_verified_at changes
-
+            $user->save();
             $this->info('✅ User updated successfully!');
             $this->displayUserInfo($user);
 
@@ -235,9 +239,9 @@ class ManageUsersCommand extends Command
         }
 
         $this->warn("You are about to delete user: {$user->name} ({$user->email})");
-        $tokensCount = $user->tokens()->count();
-        if ($tokensCount > 0) {
-            $this->warn("This user has {$tokensCount} API token(s) that will also be deleted.");
+
+        if ($user->tokens()->count() > 0) {
+            $this->warn("This user has {$user->tokens()->count()} API token(s) that will be deleted.");
         }
 
         if (! $this->option('force') && ! $this->confirm('Are you sure you want to delete this user?', false)) {
@@ -247,7 +251,6 @@ class ManageUsersCommand extends Command
         }
 
         try {
-            // Delete user tokens first
             $user->tokens()->delete();
             $user->delete();
 
@@ -268,10 +271,6 @@ class ManageUsersCommand extends Command
             return self::FAILURE;
         }
 
-        $this->info("Resetting password for: {$user->name} ({$user->email})");
-        $this->newLine();
-
-        // Ask for new password or auto-generate
         $password = $this->ask('Enter new password (leave empty to auto-generate)');
         $isGenerated = false;
 
@@ -280,26 +279,18 @@ class ManageUsersCommand extends Command
             $isGenerated = true;
             $this->info("Auto-generated password: <fg=yellow>{$password}</>");
         } else {
-            // Validate password if provided
-            $passwordValidation = $this->validateInput($password, [Password::min(8)->letters()->mixedCase()->numbers()]);
-            while ($passwordValidation !== true) {
-                $this->error($passwordValidation);
-                $password = $this->askWithRetry('Enter a valid password');
-                if ($password === null) {
-                    return self::FAILURE;
-                }
-                $passwordValidation = $this->validateInput($password, [Password::min(8)->letters()->mixedCase()->numbers()]);
+            $password = $this->validatePasswordWithRetry($password);
+            if (! $password) {
+                return self::FAILURE;
             }
         }
 
         try {
             $user->update(['password' => Hash::make($password)]);
 
-            $this->newLine();
             $this->info('✅ Password reset successfully!');
-
             if ($isGenerated) {
-                $this->warn('📋 Make sure to save this password as it won\'t be shown again:');
+                $this->warn('📋 Save this password:');
                 $this->line("Password: <fg=yellow>{$password}</>");
             }
 
@@ -311,39 +302,14 @@ class ManageUsersCommand extends Command
         }
     }
 
-    protected function selectUser(string $message): ?User
-    {
-        $email = $this->option('email') ?: $this->ask($message.' (enter email)');
-
-        if (! $email) {
-            $this->error('Email is required.');
-
-            return null;
-        }
-
-        $user = User::where('email', $email)->first();
-
-        if (! $user) {
-            $this->error("User not found with email: {$email}");
-
-            return null;
-        }
-
-        return $user;
-    }
-
     protected function getValidatedInput(string $field, string $question, array $rules): ?string
     {
-        $value = $this->option($field) ?: $this->ask($question);
-
+        $value = $this->option($field) ?? $this->askWithRetry($question);
         if ($value === null) {
-            $this->error("Value is required for {$field}.");
-
             return null;
         }
 
         $validation = $this->validateInput($value, $rules);
-
         while ($validation !== true) {
             $this->error($validation);
             $value = $this->askWithRetry("Enter a valid {$field}");
@@ -358,19 +324,13 @@ class ManageUsersCommand extends Command
 
     protected function askWithRetry(string $question, int $maxAttempts = 3): ?string
     {
-        $attempts = 0;
-
-        while ($attempts < $maxAttempts) {
-            $value = $this->ask($question.($attempts > 0 ? ' (attempt '.($attempts + 1)."/{$maxAttempts})" : ''));
-
-            if ($value !== null && $value !== '') {
+        for ($i = 0; $i < $maxAttempts; $i++) {
+            $value = $this->ask($question.($i > 0 ? " (Attempt {$i}/{$maxAttempts})" : ''));
+            if (! empty($value)) {
                 return $value;
             }
 
-            $attempts++;
-            if ($attempts < $maxAttempts) {
-                $this->warn('Value cannot be empty. Please try again.');
-            }
+            $this->warn('Input cannot be empty.');
         }
 
         $this->error('Maximum attempts reached. Operation cancelled.');
@@ -382,37 +342,32 @@ class ManageUsersCommand extends Command
     {
         $validator = Validator::make(['field' => $value], ['field' => $rules]);
 
-        if ($validator->fails()) {
-            return $validator->errors()->first('field');
+        return $validator->fails() ? $validator->errors()->first('field') : true;
+    }
+
+    protected function validatePasswordWithRetry(string $initial): ?string
+    {
+        $rules = [Password::min(8)->letters()->mixedCase()->numbers()];
+        $validation = $this->validateInput($initial, $rules);
+
+        if ($validation === true) {
+            return $initial;
         }
 
-        return true;
+        $this->error($validation);
+
+        return $this->askWithRetry('Enter a valid password');
     }
 
     protected function generateSecurePassword(int $length = 16): string
     {
-        $uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        $lowercase = 'abcdefghijklmnopqrstuvwxyz';
-        $numbers = '0123456789';
-        $symbols = '!@#$%^&*';
+        $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
 
-        $password = '';
-        $password .= $uppercase[random_int(0, strlen($uppercase) - 1)];
-        $password .= $lowercase[random_int(0, strlen($lowercase) - 1)];
-        $password .= $numbers[random_int(0, strlen($numbers) - 1)];
-        $password .= $symbols[random_int(0, strlen($symbols) - 1)];
-
-        $allChars = $uppercase.$lowercase.$numbers.$symbols;
-        for ($i = 4; $i < $length; $i++) {
-            $password .= $allChars[random_int(0, strlen($allChars) - 1)];
-        }
-
-        return str_shuffle($password);
+        return str_shuffle(substr(str_repeat($chars, $length), 0, $length));
     }
 
     protected function displayUserInfo(User $user, ?string $plainPassword = null): void
     {
-        $this->newLine();
         $this->table(
             ['Field', 'Value'],
             [
@@ -427,7 +382,6 @@ class ManageUsersCommand extends Command
         );
 
         if ($plainPassword) {
-            $this->newLine();
             $this->warn('📋 Save this password as it won\'t be shown again:');
             $this->line("Password: <fg=yellow>{$plainPassword}</>");
         }
