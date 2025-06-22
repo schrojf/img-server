@@ -5,8 +5,9 @@ namespace App\Support;
 use Illuminate\Contracts\Filesystem\Filesystem as FilesystemContract;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Facades\Storage;
+use JsonSerializable;
 
-abstract readonly class File implements Arrayable
+abstract readonly class File implements Arrayable, JsonSerializable
 {
     public string $disk;
 
@@ -15,6 +16,11 @@ abstract readonly class File implements Arrayable
     abstract public static function fromArray(array $data): self;
 
     abstract public function toArray(): array;
+
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
+    }
 
     public function storage(): FilesystemContract
     {
