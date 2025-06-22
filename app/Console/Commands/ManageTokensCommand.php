@@ -3,29 +3,43 @@
 namespace App\Console\Commands;
 
 use App\Models\User;
-use Carbon\Carbon;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Validator;
 use Laravel\Sanctum\PersonalAccessToken;
 
 class ManageTokensCommand extends Command
 {
-    protected $signature = 'token:manage
-                            {action : Action to perform (create|list|show|revoke|revoke-all|prune)}
-                            {--user-id= : User ID for token operations}
-                            {--token-id= : Token ID for specific token operations}
-                            {--name= : Token name}
-                            {--abilities=* : Token abilities (comma-separated or multiple --abilities)}
-                            {--expires-at= : Token expiration date (Y-m-d H:i:s format)}
-                            {--per-page=10 : Number of tokens per page for list}
-                            {--page=1 : Page number for list}
-                            {--search= : Search term for filtering tokens}
-                            {--show-token : Show the plain text token (only for create action)}';
+    protected $signature = 'manage:tokens {action?} {--user=} {--name=} {--abilities=*} {--token-id=} {--force}';
 
-    protected $description = 'Manage Laravel Sanctum API tokens via CLI';
+    protected $description = 'Manage Laravel Sanctum API tokens (create, list, show, revoke, revoke-all, prune)';
 
-    public function handle()
+    protected array $availableActions = [
+        'create' => 'Create a new API token for a user',
+        'list' => 'List API tokens (all or by user)',
+        'show' => 'Show token details',
+        'revoke' => 'Revoke a specific token',
+        'revoke-all' => 'Revoke all tokens for a user',
+        'prune' => 'Remove expired tokens from database',
+    ];
+
+    protected array $defaultAbilities = ['*'];
+
+    public function handle(): int
     {
         $action = $this->argument('action');
+
+        if (! $action) {
+            $this->showAvailableActions();
+
+            return self::FAILURE;
+        }
+
+        if (! array_key_exists($action, $this->availableActions)) {
+            $this->error("Invalid action: {$action}");
+            $this->showAvailableActions();
+
+            return self::FAILURE;
+        }
 
         return match ($action) {
             'create' => $this->createToken(),
@@ -34,270 +48,449 @@ class ManageTokensCommand extends Command
             'revoke' => $this->revokeToken(),
             'revoke-all' => $this->revokeAllTokens(),
             'prune' => $this->pruneTokens(),
-            default => $this->error("Invalid action: {$action}")
+            default => self::FAILURE,
         };
     }
 
-    private function createToken()
+    protected function showAvailableActions(): void
     {
-        $userId = $this->option('user-id') ?? $this->ask('Enter user ID');
+        $this->error('Not enough arguments (missing: "action").');
+        $this->newLine();
+        $this->info('Available actions:');
 
-        if (! $userId) {
-            $this->error('User ID is required');
-
-            return Command::FAILURE;
+        foreach ($this->availableActions as $action => $description) {
+            $this->line("  <fg=green>{$action}</> - {$description}");
         }
 
-        $user = User::find($userId);
+        $this->newLine();
+        $this->info('Usage examples:');
+        $this->line('  php artisan token:manage create --user=user@example.com');
+        $this->line('  php artisan token:manage list');
+        $this->line('  php artisan token:manage list --user=user@example.com');
+        $this->line('  php artisan token:manage show --token-id=1');
+        $this->line('  php artisan token:manage revoke --token-id=1');
+        $this->line('  php artisan token:manage revoke-all --user=user@example.com');
+        $this->line('  php artisan token:manage prune');
+    }
 
+    protected function createToken(): int
+    {
+        $this->info('Creating a new API token...');
+        $this->newLine();
+
+        // Get user
+        $user = $this->selectUser('Select user to create token for');
         if (! $user) {
-            $this->error("User with ID {$userId} not found");
-
-            return Command::FAILURE;
+            return self::FAILURE;
         }
 
-        $name = $this->option('name') ?? $this->ask('Enter token name', 'API Token');
-
-        $abilities = $this->option('abilities');
-        if (empty($abilities)) {
-            $abilitiesInput = $this->ask('Enter token abilities (comma-separated, * for all)', '*');
-            $abilities = $abilitiesInput === '*' ? ['*'] : array_map('trim', explode(',', $abilitiesInput));
-        } elseif (count($abilities) === 1 && str_contains($abilities[0], ',')) {
-            $abilities = array_map('trim', explode(',', $abilities[0]));
+        // Get token name with retry mechanism
+        $tokenName = $this->getValidatedInput('name', 'Enter token name', ['required', 'string', 'max:255']);
+        if ($tokenName === null) {
+            return self::FAILURE;
         }
 
-        $expiresAt = $this->option('expires-at');
-        if ($expiresAt) {
-            try {
-                $expiresAt = Carbon::createFromFormat('Y-m-d H:i:s', $expiresAt);
-            } catch (\Exception $e) {
-                $this->error('Invalid expiration date format. Use Y-m-d H:i:s format (e.g., 2024-12-31 23:59:59)');
+        // Get abilities
+        $abilities = $this->getAbilities();
 
-                return Command::FAILURE;
+        // Ask for expiration
+        $expiresAt = null;
+        if ($this->confirm('Set expiration date?', false)) {
+            $expiresAt = $this->getExpirationDate();
+            if ($expiresAt === false) {
+                return self::FAILURE;
             }
         }
 
-        $token = $user->createToken($name, $abilities, $expiresAt);
+        try {
+            $token = $user->createToken($tokenName, $abilities, $expiresAt);
 
-        $this->info('Token created successfully!');
-        $this->line('');
-        $this->displayTokenInfo($token->accessToken);
+            $this->newLine();
+            $this->info('✅ API token created successfully!');
+            $this->displayTokenInfo($token->accessToken, $token->plainTextToken);
 
-        if ($this->option('show-token')) {
-            $this->line('');
-            $this->warn('Plain text token (save this, it won\'t be shown again):');
-            $this->line($token->plainTextToken);
+            return self::SUCCESS;
+        } catch (\Exception $e) {
+            $this->error("Failed to create token: {$e->getMessage()}");
+
+            return self::FAILURE;
         }
-
-        return Command::SUCCESS;
     }
 
-    private function listTokens()
+    protected function listTokens(): int
     {
-        $userId = $this->option('user-id');
-        $perPage = (int) $this->option('per-page');
-        $page = (int) $this->option('page');
-        $search = $this->option('search');
+        $userEmail = $this->option('user');
 
-        $query = PersonalAccessToken::query()->with('tokenable');
+        if ($userEmail) {
+            $user = User::where('email', $userEmail)->first();
+            if (! $user) {
+                $this->error("User not found with email: {$userEmail}");
 
-        if ($userId) {
-            $query->where('tokenable_id', $userId)->where('tokenable_type', User::class);
+                return self::FAILURE;
+            }
+            $tokens = $user->tokens()->latest()->get();
+            $this->info("API tokens for user: {$user->name} ({$user->email})");
+        } else {
+            $tokens = PersonalAccessToken::with('tokenable')->latest()->get();
+            $this->info('All API tokens:');
         }
-
-        if ($search) {
-            $query->where('name', 'like', "%{$search}%");
-        }
-
-        $tokens = $query->orderBy('created_at', 'desc')
-            ->paginate($perPage, ['*'], 'page', $page);
 
         if ($tokens->isEmpty()) {
             $this->info('No tokens found.');
 
-            return Command::SUCCESS;
+            return self::SUCCESS;
         }
 
-        $this->info("Tokens (Page {$tokens->currentPage()} of {$tokens->lastPage()}):");
-        $this->line('');
-
-        $headers = ['ID', 'Name', 'User', 'Abilities', 'Last Used', 'Expires', 'Created'];
-        $rows = [];
-
-        foreach ($tokens as $token) {
-            $rows[] = [
+        $this->newLine();
+        $this->table(
+            ['ID', 'Name', 'User', 'Abilities', 'Last Used', 'Expires', 'Created'],
+            $tokens->map(fn ($token) => [
                 $token->id,
                 $token->name,
-                $token->tokenable?->email ?? 'N/A',
-                implode(', ', $token->abilities ?: ['*']),
-                $token->last_used_at?->format('Y-m-d H:i') ?? 'Never',
-                $token->expires_at?->format('Y-m-d H:i') ?? 'Never',
-                $token->created_at->format('Y-m-d H:i'),
-            ];
+                $token->tokenable ? "{$token->tokenable->name} ({$token->tokenable->email})" : 'N/A',
+                $this->formatAbilities($token->abilities),
+                $token->last_used_at ? $token->last_used_at->format('Y-m-d H:i:s') : 'Never',
+                $token->expires_at ? $token->expires_at->format('Y-m-d H:i:s') : 'Never',
+                $token->created_at->format('Y-m-d H:i:s'),
+            ])
+        );
+
+        $this->info("Total tokens: {$tokens->count()}");
+
+        // Show expired tokens count
+        $expiredCount = $tokens->where('expires_at', '<', now())->count();
+        if ($expiredCount > 0) {
+            $this->warn("⚠️  {$expiredCount} expired token(s) found. Run 'php artisan token:manage prune' to remove them.");
         }
 
-        $this->table($headers, $rows);
-
-        $this->info("Showing {$tokens->count()} of {$tokens->total()} tokens");
-
-        return Command::SUCCESS;
+        return self::SUCCESS;
     }
 
-    private function showToken()
+    protected function showToken(): int
     {
-        $tokenId = $this->option('token-id') ?? $this->ask('Enter token ID');
+        $tokenId = $this->option('token-id') ?: $this->ask('Enter token ID');
 
         if (! $tokenId) {
-            $this->error('Token ID is required');
+            $this->error('Token ID is required.');
 
-            return Command::FAILURE;
+            return self::FAILURE;
         }
 
         $token = PersonalAccessToken::with('tokenable')->find($tokenId);
 
         if (! $token) {
-            $this->error("Token with ID {$tokenId} not found");
+            $this->error("Token not found with ID: {$tokenId}");
 
-            return Command::FAILURE;
+            return self::FAILURE;
         }
 
         $this->displayTokenInfo($token);
 
-        return Command::SUCCESS;
+        return self::SUCCESS;
     }
 
-    private function revokeToken()
+    protected function revokeToken(): int
     {
-        $tokenId = $this->option('token-id') ?? $this->ask('Enter token ID');
+        $tokenId = $this->option('token-id') ?: $this->ask('Enter token ID to revoke');
 
         if (! $tokenId) {
-            $this->error('Token ID is required');
+            $this->error('Token ID is required.');
 
-            return Command::FAILURE;
+            return self::FAILURE;
         }
 
         $token = PersonalAccessToken::with('tokenable')->find($tokenId);
 
         if (! $token) {
-            $this->error("Token with ID {$tokenId} not found");
+            $this->error("Token not found with ID: {$tokenId}");
 
-            return Command::FAILURE;
+            return self::FAILURE;
         }
 
-        $this->info('Token to revoke:');
-        $this->displayTokenInfo($token);
-
-        if (! $this->confirm('Are you sure you want to revoke this token?')) {
-            $this->info('Token revocation cancelled.');
-
-            return Command::SUCCESS;
+        $this->warn("You are about to revoke token: {$token->name} (ID: {$token->id})");
+        if ($token->tokenable) {
+            $this->info("User: {$token->tokenable->name} ({$token->tokenable->email})");
         }
 
-        $token->delete();
+        if (! $this->option('force') && ! $this->confirm('Are you sure you want to revoke this token?', false)) {
+            $this->info('Operation cancelled.');
 
-        $this->info('Token revoked successfully!');
+            return self::SUCCESS;
+        }
 
-        return Command::SUCCESS;
+        try {
+            $token->delete();
+            $this->info('✅ Token revoked successfully!');
+
+            return self::SUCCESS;
+        } catch (\Exception $e) {
+            $this->error("Failed to revoke token: {$e->getMessage()}");
+
+            return self::FAILURE;
+        }
     }
 
-    private function revokeAllTokens()
+    protected function revokeAllTokens(): int
     {
-        $userId = $this->option('user-id') ?? $this->ask('Enter user ID (leave empty to revoke ALL tokens)');
+        $user = $this->selectUser('Select user to revoke all tokens for');
+        if (! $user) {
+            return self::FAILURE;
+        }
 
-        if ($userId) {
-            $user = User::find($userId);
+        $tokensCount = $user->tokens()->count();
 
-            if (! $user) {
-                $this->error("User with ID {$userId} not found");
+        if ($tokensCount === 0) {
+            $this->info("User {$user->name} has no tokens to revoke.");
 
-                return Command::FAILURE;
-            }
+            return self::SUCCESS;
+        }
 
-            $tokenCount = $user->tokens()->count();
+        $this->warn("You are about to revoke ALL {$tokensCount} token(s) for user: {$user->name} ({$user->email})");
 
-            if ($tokenCount === 0) {
-                $this->info('User has no tokens to revoke.');
+        if (! $this->option('force') && ! $this->confirm('Are you sure you want to revoke all tokens?', false)) {
+            $this->info('Operation cancelled.');
 
-                return Command::SUCCESS;
-            }
+            return self::SUCCESS;
+        }
 
-            $this->warn("This will revoke {$tokenCount} tokens for user: {$user->email}");
-
-            if (! $this->confirm('Are you sure you want to revoke all tokens for this user?')) {
-                $this->info('Token revocation cancelled.');
-
-                return Command::SUCCESS;
-            }
-
+        try {
             $user->tokens()->delete();
+            $this->info("✅ All {$tokensCount} token(s) revoked successfully!");
 
-            $this->info("All {$tokenCount} tokens revoked for user: {$user->email}");
+            return self::SUCCESS;
+        } catch (\Exception $e) {
+            $this->error("Failed to revoke tokens: {$e->getMessage()}");
+
+            return self::FAILURE;
+        }
+    }
+
+    protected function pruneTokens(): int
+    {
+        $expiredTokens = PersonalAccessToken::where('expires_at', '<', now())->get();
+
+        if ($expiredTokens->isEmpty()) {
+            $this->info('No expired tokens found.');
+
+            return self::SUCCESS;
+        }
+
+        $count = $expiredTokens->count();
+        $this->warn("Found {$count} expired token(s).");
+
+        if (! $this->option('force') && ! $this->confirm("Remove all {$count} expired token(s)?", true)) {
+            $this->info('Operation cancelled.');
+
+            return self::SUCCESS;
+        }
+
+        try {
+            PersonalAccessToken::where('expires_at', '<', now())->delete();
+            $this->info("✅ {$count} expired token(s) removed successfully!");
+
+            return self::SUCCESS;
+        } catch (\Exception $e) {
+            $this->error("Failed to prune tokens: {$e->getMessage()}");
+
+            return self::FAILURE;
+        }
+    }
+
+    protected function selectUser(string $message): ?User
+    {
+        $email = $this->option('user') ?: $this->ask($message.' (enter email)');
+
+        if (! $email) {
+            $this->error('Email is required.');
+
+            return null;
+        }
+
+        $user = User::where('email', $email)->first();
+
+        if (! $user) {
+            $this->error("User not found with email: {$email}");
+
+            return null;
+        }
+
+        return $user;
+    }
+
+    protected function getValidatedInput(string $field, string $question, array $rules): ?string
+    {
+        $value = $this->option($field) ?: $this->ask($question);
+
+        if ($value === null) {
+            $this->error("Value is required for {$field}.");
+
+            return null;
+        }
+
+        $validation = $this->validateInput($value, $rules);
+
+        while ($validation !== true) {
+            $this->error($validation);
+            $value = $this->askWithRetry("Enter a valid {$field}");
+            if ($value === null) {
+                return null;
+            }
+            $validation = $this->validateInput($value, $rules);
+        }
+
+        return $value;
+    }
+
+    protected function askWithRetry(string $question, int $maxAttempts = 3): ?string
+    {
+        $attempts = 0;
+
+        while ($attempts < $maxAttempts) {
+            $value = $this->ask($question.($attempts > 0 ? ' (attempt '.($attempts + 1)."/{$maxAttempts})" : ''));
+
+            if ($value !== null && $value !== '') {
+                return $value;
+            }
+
+            $attempts++;
+            if ($attempts < $maxAttempts) {
+                $this->warn('Value cannot be empty. Please try again.');
+            }
+        }
+
+        $this->error('Maximum attempts reached. Operation cancelled.');
+
+        return null;
+    }
+
+    protected function validateInput(mixed $value, array $rules): string|true
+    {
+        $validator = Validator::make(['field' => $value], ['field' => $rules]);
+
+        if ($validator->fails()) {
+            return $validator->errors()->first('field');
+        }
+
+        return true;
+    }
+
+    protected function getAbilities(): array
+    {
+        $abilitiesInput = $this->option('abilities');
+
+        if (! empty($abilitiesInput)) {
+            return $abilitiesInput;
+        }
+
+        $this->info('Token abilities (permissions):');
+        $this->line('Examples: create-posts, read-users, update-profile, delete-comments');
+        $this->line('Use "*" for all abilities (default)');
+
+        $abilities = $this->ask('Enter abilities (comma-separated, or press Enter for "*")');
+
+        if (empty($abilities)) {
+            return $this->defaultAbilities;
+        }
+
+        return array_map('trim', explode(',', $abilities));
+    }
+
+    protected function getExpirationDate(): \DateTime|false|null
+    {
+        $this->info('Expiration options:');
+        $this->line('1. Never expires (default)');
+        $this->line('2. Expires in X days');
+        $this->line('3. Expires on specific date (YYYY-MM-DD)');
+
+        $choice = $this->choice('Choose expiration type', ['never', 'days', 'date'], 'never');
+
+        return match ($choice) {
+            'never' => null,
+            'days' => $this->getExpirationInDays(),
+            'date' => $this->getExpirationByDate(),
+            default => null,
+        };
+    }
+
+    protected function getExpirationInDays(): \DateTime|false
+    {
+        $days = $this->ask('Enter number of days until expiration');
+
+        if (! is_numeric($days) || $days < 1) {
+            $this->error('Please enter a valid number of days (minimum 1).');
+
+            return false;
+        }
+
+        return now()->addDays((int) $days);
+    }
+
+    protected function getExpirationByDate(): \DateTime|false
+    {
+        $date = $this->ask('Enter expiration date (YYYY-MM-DD)');
+
+        try {
+            $expirationDate = \DateTime::createFromFormat('Y-m-d', $date);
+
+            if (! $expirationDate) {
+                throw new \Exception('Invalid date format');
+            }
+
+            if ($expirationDate < now()) {
+                $this->error('Expiration date cannot be in the past.');
+
+                return false;
+            }
+
+            return $expirationDate;
+        } catch (\Exception $e) {
+            $this->error('Please enter a valid date in YYYY-MM-DD format.');
+
+            return false;
+        }
+    }
+
+    protected function formatAbilities(array $abilities): string
+    {
+        if (in_array('*', $abilities)) {
+            return '*';
+        }
+
+        return implode(', ', array_slice($abilities, 0, 3)).(count($abilities) > 3 ? '...' : '');
+    }
+
+    protected function displayTokenInfo(PersonalAccessToken $token, ?string $plainTextToken = null): void
+    {
+        $this->newLine();
+
+        $data = [
+            ['ID', $token->id],
+            ['Name', $token->name],
+            ['Abilities', implode(', ', $token->abilities)],
+            ['User', $token->tokenable ? "{$token->tokenable->name} ({$token->tokenable->email})" : 'N/A'],
+            ['Last Used', $token->last_used_at ? $token->last_used_at->format('Y-m-d H:i:s') : 'Never'],
+            ['Expires', $token->expires_at ? $token->expires_at->format('Y-m-d H:i:s') : 'Never'],
+            ['Created', $token->created_at->format('Y-m-d H:i:s')],
+            ['Updated', $token->updated_at->format('Y-m-d H:i:s')],
+        ];
+
+        // Add expiration status
+        if ($token->expires_at) {
+            $isExpired = $token->expires_at < now();
+            $data[] = ['Status', $isExpired ? '❌ Expired' : '✅ Active'];
         } else {
-            $tokenCount = PersonalAccessToken::count();
-
-            if ($tokenCount === 0) {
-                $this->info('No tokens found to revoke.');
-
-                return Command::SUCCESS;
-            }
-
-            $this->warn("This will revoke ALL {$tokenCount} tokens in the system!");
-
-            if (! $this->confirm('Are you absolutely sure you want to revoke ALL tokens?')) {
-                $this->info('Token revocation cancelled.');
-
-                return Command::SUCCESS;
-            }
-
-            if (! $this->confirm('This cannot be undone. Continue?')) {
-                $this->info('Token revocation cancelled.');
-
-                return Command::SUCCESS;
-            }
-
-            PersonalAccessToken::query()->delete();
-
-            $this->info("All {$tokenCount} tokens have been revoked!");
+            $data[] = ['Status', '✅ Active'];
         }
 
-        return Command::SUCCESS;
-    }
+        $this->table(['Field', 'Value'], $data);
 
-    private function pruneTokens()
-    {
-        $expiredCount = PersonalAccessToken::where('expires_at', '<', now())->count();
-
-        if ($expiredCount === 0) {
-            $this->info('No expired tokens found to prune.');
-
-            return Command::SUCCESS;
+        if ($plainTextToken) {
+            $this->newLine();
+            $this->warn('🔑 API Token (save this as it won\'t be shown again):');
+            $this->line("<fg=yellow>{$plainTextToken}</>");
+            $this->newLine();
+            $this->info('📋 Usage example:');
+            $this->line('curl -H "Authorization: Bearer '.$plainTextToken.'" '.config('app.url').'/api/user');
         }
-
-        $this->info("Found {$expiredCount} expired tokens.");
-
-        if (! $this->confirm('Do you want to delete all expired tokens?')) {
-            $this->info('Token pruning cancelled.');
-
-            return Command::SUCCESS;
-        }
-
-        PersonalAccessToken::where('expires_at', '<', now())->delete();
-
-        $this->info("Pruned {$expiredCount} expired tokens successfully!");
-
-        return Command::SUCCESS;
-    }
-
-    private function displayTokenInfo(PersonalAccessToken $token): void
-    {
-        $this->line('Token Details:');
-        $this->line("  ID: {$token->id}");
-        $this->line("  Name: {$token->name}");
-        $this->line('  User: '.($token->tokenable?->email ?? 'N/A'));
-        $this->line('  Abilities: '.implode(', ', $token->abilities ?: ['*']));
-        $this->line('  Last Used: '.($token->last_used_at?->format('Y-m-d H:i:s') ?? 'Never'));
-        $this->line('  Expires: '.($token->expires_at?->format('Y-m-d H:i:s') ?? 'Never'));
-        $this->line("  Created: {$token->created_at->format('Y-m-d H:i:s')}");
-        $this->line("  Updated: {$token->updated_at->format('Y-m-d H:i:s')}");
     }
 }
