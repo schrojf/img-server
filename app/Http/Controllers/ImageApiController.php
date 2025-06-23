@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\DeleteImageAction;
+use App\Jobs\DownloadImageAndGenerateImageVariantsJob;
 use App\Jobs\DownloadImageJob;
 use App\Models\Enums\ImageStatus;
 use App\Models\Image;
@@ -49,7 +50,16 @@ class ImageApiController extends Controller
         abort_if($image->status === ImageStatus::DELETING, 404);
 
         if ($image->wasRecentlyCreated) {
-            dispatch(new DownloadImageJob($image->id));
+            $dispatchMethod = config('images.jobs.dispatch');
+
+            if ($dispatchMethod === 'sync') {
+                DownloadImageJob::dispatchSync($image->id);
+                $image->refresh();
+            } elseif ($dispatchMethod === 'batch') {
+                DownloadImageAndGenerateImageVariantsJob::dispatch($image->id);
+            } elseif ($dispatchMethod === 'chain') {
+                DownloadImageJob::dispatch($image->id);
+            }
         }
 
         return response()->json([

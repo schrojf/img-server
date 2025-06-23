@@ -18,6 +18,7 @@ return [
     ],
 
     'jobs' => [
+        'dispatch' => 'chain', // 'sync', 'batch', 'chain' or 'null'
         'autoExpire' => false,
     ],
 
