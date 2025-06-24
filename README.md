@@ -1,33 +1,41 @@
 <p align="center"><img src="/.github/art/logo.svg" alt="img-server"></p>
 
-## Introduction
+<h1 align="center">Laravel Image Server</h1>
+<p align="center">
+  A lightweight, robust image server with queued downloads, variant processing, and a REST API.
+</p>
 
-Lightweight image server designed for robustness, configurable via REST API.
+## 🚀 Introduction
 
-## Key Features
+Laravel Image Server is a lightweight image processing API built for robustness and configurability. It uses Laravel queues to download and process images asynchronously, generate custom variants, and expose a complete RESTful interface for external integration.
 
--  **Queued Image Downloads:** Uses Laravel jobs to handle image downloads asynchronously 
--  **Image Variants:** Configurable variants (thumbnail, medium, large) with resizing, compression, and watermarking 
--  **Robust API:** Complete REST API for managing images 
--  **Error Handling:** Comprehensive error handling and logging 
--  **File Management:** Organized storage structure with cleanup commands
+## ✨ Key Features
 
-## API Endpoints
+- **Queued Downloads**: Uses Laravel Jobs to handle downloads asynchronously
+- **Image Variants**: Configurable sizes, compression, encoders, and modifiers
+- **Complete REST API**: Endpoints to upload, view, and manage images
+- **Error Resilience**: Detailed error logging and retry logic
+- **Organized File Storage**: Auto cleanup and variant generation
+- **Customizable Pipelines**: Define how variants are built via simple config
 
-- `POST /api/images` - Queue image download
-- `GET /api/images` - List images and processing jobs stats
-- `GET /api/images/{id}` - Get specific image details with variants
-- `DELETE /api/images/{id}` - Delete image and its files
+## 📦 API Endpoints
+
+| Method | Endpoint               | Description                     |
+|--------|------------------------|---------------------------------|
+| POST   | `/api/images`          | Queue a new image for download  |
+| GET    | `/api/images`          | List images and job stats       |
+| GET    | `/api/images/{id}`     | Get image details + variants    |
+| DELETE | `/api/images/{id}`     | Delete image and all its files  |
 
 ## 🛠️ Installation
 
-Use laravel Sail during development and testing ...
+Use Laravel Sail for development and testing:
 
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/laravel-image-server.git
-cd laravel-image-server
+git clone https://github.com/schrojf/img-server.git
+cd img-server
 ```
 
 ### 2. Install Dependencies
@@ -36,21 +44,21 @@ cd laravel-image-server
 composer install
 ```
 
-### 3.Start the Application
+### 3. Start the Application
 
-Configure your `.env` file.
+Copy `.env.example` to `.env`, configure your DB, then:
 
 ```bash
 ./vendor/bin/sail up -d
 ```
 
-### 4. Database Setup
+### 4. Set Up the Database
 
 ```bash
 ./vendor/bin/sail artisan migrate
 ```
 
-### 5. Storage Setup
+### 5. Set Up Storage Symlink
 
 ```bash
 ./vendor/bin/sail artisan storage:link
@@ -58,33 +66,31 @@ Configure your `.env` file.
 
 ## 🔧 Configuration
 
-### Image Variants Configuration
+### Image Variants
 
-Edit `AppServiceProvider.php` to customize image variants generation:
+Customize image processing variants inside `AppServiceProvider.php`:
 
 ```php
-    public function boot(): void
-    {
-        ImageVariantRegistry::register(fn () => ImageVariant::make('600x600wh')
-            ->addModifier(new ImageCropModifier(600, 600))
-            ->withDefaultEncoders()
-            ->withAvifEncoder()
-        );
+public function boot(): void
+{
+    ImageVariantRegistry::register(fn () => ImageVariant::make('600x600wh')
+        ->addModifier(new ImageCropModifier(600, 600))
+        ->withDefaultEncoders()
+        ->withAvifEncoder()
+    );
 
-        ImageVariantRegistry::register(fn () => ImageVariant::make('150x150wh')
-            ->addModifier(new ImageCropModifier(150, 150))
-            ->withDefaultEncoders()
-        );
-    }
+    ImageVariantRegistry::register(fn () => ImageVariant::make('150x150wh')
+        ->addModifier(new ImageCropModifier(150, 150))
+        ->withDefaultEncoders()
+    );
+}
 ```
 
-### Image server configuration
+### Image Server Options
 
-Edit `config/images.php` file to customize app behavior:
+Edit `config/images.php`:
 
 ```php
-<?php
-
 return [
 
     'disk' => [
@@ -107,27 +113,29 @@ return [
         'autoExpire' => false,
     ],
 
-    'driver' => env('INTERVENTION_IMAGE_DRIVE', 'Gd'), // gd, imagick, vips
-
+    'driver' => env('INTERVENTION_IMAGE_DRIVER', 'gd'), // gd, imagick, vips
     'avif' => env('AVIF_ENABLED', false),
 
 ];
 ```
 
-## 📚 API Documentation
+## 🔐 Authentication
 
-### Base URL
+This API uses [Laravel Sanctum](https://laravel.com/docs/sanctum) for token-based authentication. You must include a `Bearer` token in your requests:
 
-```php
-https://your-domain.com/api
+```
+Authorization: Bearer your-api-token
 ```
 
-### Authentication
-Authentication is using Laravel Sanctum....
+Tokens can be created via:
 
-### Endpoints
+```bash
+./vendor/bin/sail artisan manage:tokens create --user=user@example.com
+```
 
-#### 1. Image statistics
+## 📚 API Documentation
+
+### 1. Image Statistics
 
 Get statistics about image processing.
 
@@ -135,21 +143,21 @@ Get statistics about image processing.
 GET /api/images
 ```
 
-##### Response:
+**Returns:**
 
 ```json
 {
-    "queued": 1,
-    "processing": 1,
-    "done": 7,
-    "failed": 0,
-    "expired": 0,
-    "deleting": 0,
-    "total": 9
+  "queued": 1,
+  "processing": 1,
+  "done": 7,
+  "failed": 0,
+  "expired": 0,
+  "deleting": 0,
+  "total": 9
 }
 ```
 
-#### 2. Create image from url
+### 2. Queue Image from URL
 
 Queue an image for download and processing.
 
@@ -158,60 +166,60 @@ POST /api/images
 Content-Type: application/json
 
 {
-    "url": "https://picsum.photos/5000/4000.jpg"
+  "url": "https://picsum.photos/5000/4000.jpg"
 }
 ```
 
-##### Response:
+**Response:**
 
 ```json
 {
-    "id": 1,
-    "status": "queued",
-    "uid": "6ed6c09eb43326f246c71ce8796d1b32",
-    "original_url": "https://picsum.photos/5000/4000.jpg",
-    "last_error": null,
-    "variants": [],
-    "downloaded_at": null,
-    "processed_at": null,
-    "is_new": true
+  "id": 1,
+  "status": "queued",
+  "uid": "6ed6c09eb43326f246c71ce8796d1b32",
+  "original_url": "https://picsum.photos/5000/4000.jpg",
+  "last_error": null,
+  "variants": [],
+  "downloaded_at": null,
+  "processed_at": null,
+  "is_new": true
 }
 ```
 
-#### 3. Get Image Details
+### 3. Get Image Details
 
-Retrieve details of a specific image.
+Returns full details including URLs of generated variants.
 
 ```http
-GET `/api/images/1`
+GET /api/images/1
 ```
 
-##### Response:
+**Response:**
 
 ```json
 {
-    "id": 1,
-    "status": "done",
-    "uid": "6ed6c09eb43326f246c71ce8796d1b32",
-    "original_url": "https://picsum.photos/5000/4000.jpg",
-    "last_error": null,
-    "variants": {
-        "150x150wh": {
-            "jpg": "https://your-domain.com/img/24/e3/69/24e3698cffe9236afda8486e017c25310ff366e0_1_150x150wh.jpg",
-            "webp": "https://your-domain.com/img/24/e3/69/24e3698cffe9236afda8486e017c25310ff366e0_1_150x150wh.webp"
-        },
-        "600x600wh": {
-            "jpg": "https://your-domain.com/img/24/e3/69/24e3698cffe9236afda8486e017c25310ff366e0_1_600x600wh.jpg",
-            "avif": "https://your-domain.com/img/24/e3/69/24e3698cffe9236afda8486e017c25310ff366e0_1_600x600wh.avif",
-            "webp": "https://your-domain.com/img/24/e3/69/24e3698cffe9236afda8486e017c25310ff366e0_1_600x600wh.webp"
-        }
+  "id": 1,
+  "status": "done",
+  "uid": "6ed6c09eb43326f246c71ce8796d1b32",
+  "original_url": "https://picsum.photos/5000/4000.jpg",
+  "last_error": null,
+  "variants": {
+    "150x150wh": {
+      "jpg": "https://your-domain.com/img/24/e3/69/24e3698cffe9236afda8486e017c25310ff366e0_1_150x150wh.jpg",
+      "webp": "https://your-domain.com/img/24/e3/69/24e3698cffe9236afda8486e017c25310ff366e0_1_150x150wh.webp"
     },
-    "downloaded_at": "2025-06-22T13:16:07.000000Z",
-    "processed_at": "2025-06-22T13:16:08.000000Z"
+    "600x600wh": {
+      "jpg": "https://your-domain.com/img/24/e3/69/24e3698cffe9236afda8486e017c25310ff366e0_1_600x600wh.jpg",
+      "avif": "https://your-domain.com/img/24/e3/69/24e3698cffe9236afda8486e017c25310ff366e0_1_600x600wh.avif",
+      "webp": "https://your-domain.com/img/24/e3/69/24e3698cffe9236afda8486e017c25310ff366e0_1_600x600wh.webp"
+    }
+  },
+  "downloaded_at": "2025-06-22T13:16:07.000000Z",
+  "processed_at": "2025-06-22T13:16:08.000000Z"
 }
 ```
 
-#### 4. Delete Image
+### 4. Delete an Image
 
 Delete an image and all its associated files.
 
@@ -219,20 +227,29 @@ Delete an image and all its associated files.
 DELETE /api/images/{id}
 ```
 
-### Status Values
+Deletes original and all variant files.
 
-* `queued`: Image is queued for download
-* `processing`: Image is currently being downloaded or being processed (creating variants)
-* `done`: Image and all variants are ready
-* `failed`: Processing failed (check error_message)
-* `expired`: Process hang during processing phase
-* `deleting`: Image is marked as deleted and being removed with all its files
+### 🗂 Status Values
 
-### 🧹 Maintenance Commands
+* `queued`: Waiting for download
+* `processing`: Downloading or transforming
+* `done`: Image is ready
+* `failed`: An error occurred
+* `expired`: Marked as stale
+* `deleting`: Scheduled for deletion
 
-#### Manage users
+## 🧹 Artisan Maintenance Commands
 
-./vendor/bin/sail artisan manage:users
+### 🔐 Manage Users
+
+```bash
+php artisan manage:users
+```
+
+Actions: `create`, `list`, `show`, `update`, `delete`, `reset-password`
+
+```Terminal
+./vendor/bin/sail artisan manage:users --- help
 
 Available actions:
 create - Create a new user
@@ -246,11 +263,18 @@ Usage examples:
 php artisan manage:users create
 php artisan manage:users update --email=user@example.com
 php artisan manage:users show --id=1
+```
 
-#### Manage api tokens
+### 🔑 Manage API Tokens
 
-./vendor/bin/sail artisan manage:tokens
-Missing or invalid action.
+```bash
+php artisan manage:tokens
+```
+
+Actions: `create`, `list`, `show`, `revoke`, `revoke-all`, `prune`
+
+```Terminal
+./vendor/bin/sail artisan manage:tokens --help
 
 Available actions:
 create — Create a new API token for a user
@@ -268,17 +292,21 @@ php artisan token:manage show --token-id=1
 php artisan token:manage revoke --token-id=1
 php artisan token:manage revoke-all --user=user@example.com
 php artisan token:manage prune
+```
 
-
-#### Mark stale processing images as expired
-
-/vendor/bin/sail artisan image:expire
-
-#### Check for supported image formats
+### ⏳ Mark Expired Images
 
 ```bash
-./vendor/bin/sail artisan images:supported-check --help
+php artisan image:expire
 ```
+
+### 🧪 Check Supported Formats
+
+```bash
+php artisan images:supported-check
+```
+
+**Example output:**
 
 ```Terminal
 +------------+-----------+-----------+-----------------------------------------------------------------+
@@ -296,36 +324,38 @@ php artisan token:manage prune
 +------------+-----------+-----------+-----------------------------------------------------------------+
 ```
 
-./vendor/bin/sail artisan image:
+### 🧼 Cleanup Orphaned Files
 
-#### Remove orphaned image and variant files from storage
+```bash
+php artisan image:images:cleanup-orphaned
+# 
+php artisan image:images:cleanup-orphaned --dry-run
+```
 
-./vendor/bin/sail artisan image:images:cleanup-orphaned
+## ✅ Testing
 
-List orphaned files but do not delete them:
-./vendor/bin/sail artisan image:images:cleanup-orphaned -d
-./vendor/bin/sail artisan image:images:cleanup-orphaned --dry-run
-
-## Testing
+**Run all tests:**
 
 ```bash
 ./vendor/bin/sail artisan test
 ```
 
-### Manual testing
+**Manual test helpers:**
 
-./vendor/bin/sail artisan app:download-test-image - Download test image and generate all registered variants.
-./vendor/bin/sail artisan app:generate-test-image - Generate a fake test image and image record for local testing.
+```bash
+./vendor/bin/sail artisan app:download-test-image # Download test image and generate all registered variants.
+./vendor/bin/sail artisan app:generate-test-image # Generate a fake test image and image record for local testing.
+```
 
-## Security Vulnerabilities
+## 🛡 Security
 
-If you discover a security vulnerability within this project, please send an e-mail to Viliam Schrojf via [viliam@schrojf.sk](mailto:viliam@schrojf.sk).
+Please report security issues to [viliam@schrojf.sk](mailto:viliam@schrojf.sk). Do not open public issues.
 
-## Credits
+## 🙌 Credits
 
-- [Viliam Schrojf](https://github.com/schrojf)
-- [All Contributors](../../contributors)
+* [Viliam Schrojf](https://github.com/schrojf)
+* [All Contributors](../../contributors)
 
-## License
+## 📄 License
 
 The MIT License (MIT). Please see [MIT license](https://opensource.org/licenses/MIT) for more information.
