@@ -221,13 +221,11 @@ GET /api/images/1
 
 ### 4. Delete an Image
 
-Delete an image and all its associated files.
+Deletes original and all variant files.
 
 ```http
 DELETE /api/images/{id}
 ```
-
-Deletes original and all variant files.
 
 ### 🗂 Status Values
 
@@ -249,7 +247,7 @@ php artisan manage:users
 Actions: `create`, `list`, `show`, `update`, `delete`, `reset-password`
 
 ```Terminal
-./vendor/bin/sail artisan manage:users --- help
+./vendor/bin/sail artisan manage:users --help
 
 Available actions:
 create - Create a new user
@@ -296,6 +294,8 @@ php artisan token:manage prune
 
 ### ⏳ Mark Expired Images
 
+Mark stale processing images as expired.
+
 ```bash
 php artisan image:expire
 ```
@@ -326,9 +326,15 @@ php artisan images:supported-check
 
 ### 🧼 Cleanup Orphaned Files
 
+Remove orphaned image and variant files from storage:
+
 ```bash
 php artisan image:images:cleanup-orphaned
-# 
+```
+
+List orphaned files but do not delete them:
+
+```bash
 php artisan image:images:cleanup-orphaned --dry-run
 ```
 
