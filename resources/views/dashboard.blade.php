@@ -12,11 +12,11 @@
 
     {{-- Image Statuses --}}
     <div class="dashboard-section">
-        <h2 data-toggle-section class="flex items-center justify-between cursor-pointer select-none bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+        <h2 data-toggle-section role="button" tabindex="0" aria-expanded="true" aria-controls="section-statuses" class="flex items-center justify-between cursor-pointer select-none bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
             Image Statuses
-            <svg class="toggle-chevron w-4 h-4 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            <x-toggle-chevron />
         </h2>
-        <div class="section-body mt-2">
+        <div id="section-statuses" class="section-body mt-2">
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 @php
                     $statusColors = [
@@ -24,7 +24,7 @@
                         'processing' => 'bg-blue-50 text-blue-700 border-blue-200',
                         'done' => 'bg-green-50 text-green-700 border-green-200',
                         'failed' => 'bg-red-50 text-red-700 border-red-200',
-                        'expired' => 'bg-gray-50 text-gray-500 border-gray-200',
+                        'expired' => 'bg-gray-100 text-gray-600 border-gray-200',
                         'deleting' => 'bg-orange-50 text-orange-700 border-orange-200',
                         'total' => 'bg-indigo-50 text-indigo-700 border-indigo-200',
                     ];
@@ -41,19 +41,19 @@
 
     {{-- Supported Image Formats --}}
     <div class="dashboard-section">
-        <h2 data-toggle-section class="flex items-center justify-between cursor-pointer select-none bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+        <h2 data-toggle-section role="button" tabindex="0" aria-expanded="true" aria-controls="section-formats" class="flex items-center justify-between cursor-pointer select-none bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
             Supported Image Formats
-            <svg class="toggle-chevron w-4 h-4 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            <x-toggle-chevron />
         </h2>
-        <div class="section-body mt-2">
-            <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div id="section-formats" class="section-body mt-2">
+            <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead class="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         <tr>
-                            <th class="px-4 py-2">MIME Type</th>
-                            <th class="px-4 py-2">Extension</th>
-                            <th class="px-4 py-2">Supported</th>
-                            <th class="px-4 py-2">Message</th>
+                            <th scope="col" class="px-4 py-2">MIME Type</th>
+                            <th scope="col" class="px-4 py-2">Extension</th>
+                            <th scope="col" class="px-4 py-2">Supported</th>
+                            <th scope="col" class="px-4 py-2">Message</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
@@ -68,7 +68,7 @@
                                         <span class="text-red-500">Not supported</span>
                                     @endif
                                 </td>
-                                <td class="px-4 py-2 text-xs text-gray-400">{{ $format['message'] ?? '-' }}</td>
+                                <td class="px-4 py-2 text-xs text-gray-500">{{ $format['message'] ?? '-' }}</td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -79,19 +79,19 @@
 
     {{-- Registered Image Variants --}}
     <div class="dashboard-section">
-        <h2 data-toggle-section class="flex items-center justify-between cursor-pointer select-none bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+        <h2 data-toggle-section role="button" tabindex="0" aria-expanded="true" aria-controls="section-variants" class="flex items-center justify-between cursor-pointer select-none bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
             Registered Image Variants
-            <svg class="toggle-chevron w-4 h-4 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            <x-toggle-chevron />
         </h2>
-        <div class="section-body mt-2">
-            <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div id="section-variants" class="section-body mt-2">
+            <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead class="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         <tr>
-                            <th class="px-4 py-2">Name</th>
-                            <th class="px-4 py-2">Dimensions</th>
-                            <th class="px-4 py-2">Background</th>
-                            <th class="px-4 py-2">Encoders</th>
+                            <th scope="col" class="px-4 py-2">Name</th>
+                            <th scope="col" class="px-4 py-2">Dimensions</th>
+                            <th scope="col" class="px-4 py-2">Background</th>
+                            <th scope="col" class="px-4 py-2">Encoders</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
@@ -106,7 +106,7 @@
                                 <td class="px-4 py-2 text-xs">
                                     @foreach($variant['modifiers'] as $mod)
                                         <span class="inline-flex items-center gap-1">
-                                            <span class="inline-block w-3 h-3 rounded border border-gray-300" style="background-color: #{{ $mod['backgroundColor'] }}"></span>
+                                            <span class="inline-block w-3 h-3 rounded border border-gray-300" style="background-color: #{{ $mod['backgroundColor'] }}" aria-hidden="true"></span>
                                             #{{ $mod['backgroundColor'] }}
                                         </span>
                                     @endforeach
@@ -128,11 +128,11 @@
 
     {{-- Configuration --}}
     <div class="dashboard-section">
-        <h2 data-toggle-section class="flex items-center justify-between cursor-pointer select-none bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+        <h2 data-toggle-section role="button" tabindex="0" aria-expanded="true" aria-controls="section-config" class="flex items-center justify-between cursor-pointer select-none bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
             Configuration
-            <svg class="toggle-chevron w-4 h-4 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+            <x-toggle-chevron />
         </h2>
-        <div class="section-body mt-2">
+        <div id="section-config" class="section-body mt-2">
             <div class="bg-white border border-gray-200 rounded-lg divide-y divide-gray-100">
                 @php
                     $configItems = [
@@ -157,7 +157,7 @@
                             <span class="font-mono text-xs font-medium text-gray-700">{{ $key }}</span>
                         </div>
                         <div class="sm:w-32 shrink-0 font-medium text-gray-800 text-xs">{{ $value }}</div>
-                        <div class="text-xs text-gray-400">{{ $description }}</div>
+                        <div class="text-xs text-gray-500">{{ $description }}</div>
                     </div>
                 @endforeach
             </div>
@@ -166,25 +166,25 @@
 
     {{-- API Tokens --}}
     <div class="dashboard-section">
-        <h2 data-toggle-section class="flex items-center justify-between cursor-pointer select-none bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
-            API Tokens <span class="ml-2 text-xs font-normal text-gray-400">({{ $tokens->count() }})</span>
-            <svg class="toggle-chevron w-4 h-4 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        <h2 data-toggle-section role="button" tabindex="0" aria-expanded="true" aria-controls="section-tokens" class="flex items-center justify-between cursor-pointer select-none bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+            API Tokens <span class="ml-2 text-xs font-normal text-gray-500">({{ $tokens->count() }})</span>
+            <x-toggle-chevron />
         </h2>
-        <div class="section-body mt-2">
+        <div id="section-tokens" class="section-body mt-2">
             @if($tokens->isEmpty())
-                <div class="bg-white border border-gray-200 rounded-lg px-4 py-6 text-center text-sm text-gray-400">No API tokens found.</div>
+                <div class="bg-white border border-gray-200 rounded-lg px-4 py-6 text-center text-sm text-gray-500">No API tokens found.</div>
             @else
-                <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead class="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             <tr>
-                                <th class="px-4 py-2">ID</th>
-                                <th class="px-4 py-2">Name</th>
-                                <th class="px-4 py-2">User</th>
-                                <th class="px-4 py-2">Abilities</th>
-                                <th class="px-4 py-2">Last Used</th>
-                                <th class="px-4 py-2">Expires</th>
-                                <th class="px-4 py-2">Created</th>
+                                <th scope="col" class="px-4 py-2">ID</th>
+                                <th scope="col" class="px-4 py-2">Name</th>
+                                <th scope="col" class="px-4 py-2">User</th>
+                                <th scope="col" class="px-4 py-2">Abilities</th>
+                                <th scope="col" class="px-4 py-2">Last Used</th>
+                                <th scope="col" class="px-4 py-2">Expires</th>
+                                <th scope="col" class="px-4 py-2">Created</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
@@ -201,15 +201,15 @@
                                             <span class="inline-block bg-gray-100 text-gray-600 rounded px-1.5 py-0.5 mr-1">{{ $ability }}</span>
                                         @endforeach
                                         @if(count($token->abilities) > 3)
-                                            <span class="text-gray-400">+{{ count($token->abilities) - 3 }}</span>
+                                            <span class="text-gray-500">+{{ count($token->abilities) - 3 }}</span>
                                         @endif
                                     </td>
-                                    <td class="px-4 py-2 text-xs text-gray-400">{{ $token->last_used_at?->diffForHumans() ?? 'Never' }}</td>
-                                    <td class="px-4 py-2 text-xs {{ $isExpired ? 'text-red-500 font-medium' : 'text-gray-400' }}">
+                                    <td class="px-4 py-2 text-xs text-gray-500">{{ $token->last_used_at?->diffForHumans() ?? 'Never' }}</td>
+                                    <td class="px-4 py-2 text-xs {{ $isExpired ? 'text-red-500 font-medium' : 'text-gray-500' }}">
                                         {{ $token->expires_at?->format('Y-m-d') ?? 'Never' }}
                                         @if($isExpired) (expired) @endif
                                     </td>
-                                    <td class="px-4 py-2 text-xs text-gray-400">{{ $token->created_at->format('Y-m-d') }}</td>
+                                    <td class="px-4 py-2 text-xs text-gray-500">{{ $token->created_at->format('Y-m-d') }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -221,24 +221,24 @@
 
     {{-- Users --}}
     <div class="dashboard-section">
-        <h2 data-toggle-section class="flex items-center justify-between cursor-pointer select-none bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
-            Users <span class="ml-2 text-xs font-normal text-gray-400">({{ $users->count() }})</span>
-            <svg class="toggle-chevron w-4 h-4 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        <h2 data-toggle-section role="button" tabindex="0" aria-expanded="true" aria-controls="section-users" class="flex items-center justify-between cursor-pointer select-none bg-white border border-gray-200 rounded-lg px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+            Users <span class="ml-2 text-xs font-normal text-gray-500">({{ $users->count() }})</span>
+            <x-toggle-chevron />
         </h2>
-        <div class="section-body mt-2">
+        <div id="section-users" class="section-body mt-2">
             @if($users->isEmpty())
-                <div class="bg-white border border-gray-200 rounded-lg px-4 py-6 text-center text-sm text-gray-400">No users found.</div>
+                <div class="bg-white border border-gray-200 rounded-lg px-4 py-6 text-center text-sm text-gray-500">No users found.</div>
             @else
-                <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead class="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             <tr>
-                                <th class="px-4 py-2">ID</th>
-                                <th class="px-4 py-2">Name</th>
-                                <th class="px-4 py-2">Email</th>
-                                <th class="px-4 py-2">Verified</th>
-                                <th class="px-4 py-2">Tokens</th>
-                                <th class="px-4 py-2">Created</th>
+                                <th scope="col" class="px-4 py-2">ID</th>
+                                <th scope="col" class="px-4 py-2">Name</th>
+                                <th scope="col" class="px-4 py-2">Email</th>
+                                <th scope="col" class="px-4 py-2">Verified</th>
+                                <th scope="col" class="px-4 py-2">Tokens</th>
+                                <th scope="col" class="px-4 py-2">Created</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
@@ -251,11 +251,11 @@
                                         @if($u->email_verified_at)
                                             <span class="text-green-600">{{ $u->email_verified_at->format('Y-m-d') }}</span>
                                         @else
-                                            <span class="text-gray-400">No</span>
+                                            <span class="text-gray-500">No</span>
                                         @endif
                                     </td>
                                     <td class="px-4 py-2 text-xs text-gray-500">{{ $u->tokens_count }}</td>
-                                    <td class="px-4 py-2 text-xs text-gray-400">{{ $u->created_at->format('Y-m-d') }}</td>
+                                    <td class="px-4 py-2 text-xs text-gray-500">{{ $u->created_at->format('Y-m-d') }}</td>
                                 </tr>
                             @endforeach
                         </tbody>

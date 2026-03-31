@@ -7,7 +7,7 @@
     <h1 class="text-xl font-semibold text-center mb-6">Login</h1>
 
     @if($errors->any())
-        <div class="mb-4 text-sm text-red-600">
+        <div class="mb-4 text-sm text-red-600" role="alert">
             @foreach($errors->all() as $error)
                 <p>{{ $error }}</p>
             @endforeach

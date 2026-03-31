@@ -24,7 +24,7 @@
             </div>
         @else
             @if(Route::has('login'))
-                <a href="{{ route('login') }}" class="text-gray-400 hover:text-gray-600 transition-colors">Login</a>
+                <a href="{{ route('login') }}" class="text-gray-500 hover:text-gray-600 transition-colors">Login</a>
             @endif
         @endauth
     </nav>
@@ -37,7 +37,7 @@
                 </svg>
             </div>
             <div class="text-green-600 text-3xl font-bold tracking-tight">OK</div>
-            <p class="text-gray-400 text-sm mt-1">Service is running</p>
+            <p class="text-gray-500 text-sm mt-1">Service is running</p>
         </div>
     </div>
 </body>
