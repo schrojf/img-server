@@ -9,7 +9,7 @@
 </head>
 <body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
     <header class="border-b border-gray-200 bg-white">
-        <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
             <a href="{{ url('/') }}" class="text-sm font-medium text-gray-600 hover:text-gray-900">Image Server</a>
             <nav class="flex items-center gap-4 text-sm">
                 @auth
@@ -31,7 +31,7 @@
         </div>
     </header>
 
-    <main class="flex-1 flex items-center justify-center p-4">
+    <main class="flex-1 flex items-start justify-center p-6">
         @yield('content')
     </main>
 </body>

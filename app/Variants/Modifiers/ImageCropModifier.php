@@ -26,4 +26,15 @@ class ImageCropModifier extends ImageModifier
     {
         return $image->pad($this->width, $this->height, $this->backgroundColor, $this->position);
     }
+
+    public function toArray(): array
+    {
+        return [
+            'type' => 'crop',
+            'width' => $this->width,
+            'height' => $this->height,
+            'backgroundColor' => $this->backgroundColor,
+            'position' => $this->position,
+        ];
+    }
 }

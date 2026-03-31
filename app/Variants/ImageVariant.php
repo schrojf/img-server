@@ -84,6 +84,16 @@ class ImageVariant
         return $this->prepareEncodings($image);
     }
 
+    public function getModifiers(): array
+    {
+        return $this->modifiers;
+    }
+
+    public function getEncoders(): array
+    {
+        return $this->encoders;
+    }
+
     protected function prepareEncodings(Image $image): PendingEncodings
     {
         return new PendingEncodings(
