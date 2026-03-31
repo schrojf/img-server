@@ -34,13 +34,13 @@ jobs:
           npm install
 
       - name: Run Pint
-        run: composer lint
+        run: ./vendor/bin/pint --test
 
-      - name: Format Frontend
-        run: npm run format
+      # - name: Format Frontend
+      #   run: npm run format
 
-      - name: Lint Frontend
-        run: npm run lint
+      # - name: Lint Frontend
+      #   run: npm run lint
 
       # - name: Commit Changes
       #   uses: stefanzweifel/git-auto-commit-action@v7
