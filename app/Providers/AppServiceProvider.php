@@ -43,15 +43,43 @@ class AppServiceProvider extends ServiceProvider
             ImageVariantRegistry::clear();
         }
 
+        // Micro thumbnail: cart widget, mini-cart, autocomplete (WebP + JPEG)
+        ImageVariantRegistry::register(fn () => ImageVariant::make('80x80wh')
+            ->addModifier(new ImageCropModifier(80, 80))
+            ->withDefaultEncoders()
+        );
+
+        // Thumbnail: product cards, cart/mini-cart, gallery nav, search results, drawer (WebP + JPEG)
+        ImageVariantRegistry::register(fn () => ImageVariant::make('155x155wh')
+            ->addModifier(new ImageCropModifier(155, 155))
+            ->withDefaultEncoders()
+        );
+
+        // Product card: grid listings, category pages, embed ads (WebP + JPEG)
+        ImageVariantRegistry::register(fn () => ImageVariant::make('300x300wh')
+            ->addModifier(new ImageCropModifier(300, 300))
+            ->withDefaultEncoders()
+        );
+
+        // Full image: product detail main image, embed script large card (WebP + JPEG + AVIF)
         ImageVariantRegistry::register(fn () => ImageVariant::make('600x600wh')
             ->addModifier(new ImageCropModifier(600, 600))
             ->withDefaultEncoders()
             ->withAvifEncoder()
         );
 
-        ImageVariantRegistry::register(fn () => ImageVariant::make('150x150wh')
-            ->addModifier(new ImageCropModifier(150, 150))
+        // High-res detail: product page zoom, retina displays (WebP + JPEG + AVIF)
+        ImageVariantRegistry::register(fn () => ImageVariant::make('1200x1200wh')
+            ->addModifier(new ImageCropModifier(1200, 1200))
             ->withDefaultEncoders()
+            ->withAvifEncoder()
+        );
+
+        // Maximum: full-zoom overlay, print-quality preview (WebP + JPEG + AVIF)
+        ImageVariantRegistry::register(fn () => ImageVariant::make('2000x2000wh')
+            ->addModifier(new ImageCropModifier(2000, 2000))
+            ->withDefaultEncoders()
+            ->withAvifEncoder()
         );
     }
 }
