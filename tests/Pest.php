@@ -1,5 +1,9 @@
 <?php
 
+use App\Models\Enums\ImageStatus;
+use App\Models\Image;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /*
@@ -14,7 +18,7 @@ use Tests\TestCase;
 */
 
 pest()->extend(TestCase::class)
-    ->use(Illuminate\Foundation\Testing\RefreshDatabase::class)
+    ->use(RefreshDatabase::class)
     ->in('Feature');
 
 /*
@@ -43,17 +47,17 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function user(array $attributes = []): \App\Models\User
+function user(array $attributes = []): User
 {
-    return \App\Models\User::factory()->create($attributes);
+    return User::factory()->create($attributes);
 }
 
-function image(?string $url = null): \App\Models\Image
+function image(?string $url = null): Image
 {
     $url = $url ?? 'https://example.com/image'.uniqid().'.jpg';
 
-    return \App\Models\Image::create([
-        'status' => \App\Models\Enums\ImageStatus::EXPIRED,
+    return Image::create([
+        'status' => ImageStatus::EXPIRED,
         'uid' => hash('xxh128', $url),
         'original_url' => $url,
     ]);

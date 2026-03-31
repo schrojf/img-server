@@ -240,7 +240,7 @@ test('exception will be caught and save last error', function () {
         ->shouldReceive('handle')
         ->once()
         ->with('https://example.org/image.jpg')
-        ->andThrow(new \RuntimeException('Test error message.'))
+        ->andThrow(new RuntimeException('Test error message.'))
         ->getMock();
 
     $job = new DownloadImageAction(

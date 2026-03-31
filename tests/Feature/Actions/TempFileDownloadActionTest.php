@@ -146,7 +146,7 @@ it('cleans up temporary file on exception', function () {
 
     try {
         (new TempFileDownloadAction)->handle($url);
-    } catch (\Illuminate\Http\Client\RequestException $e) {
+    } catch (RequestException $e) {
         // Exception caught, now check if the temporary file was cleaned up
     }
 
