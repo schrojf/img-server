@@ -21,7 +21,7 @@ test('dashboard displays image statuses section', function () {
         ->assertStatus(200)
         ->assertSee('Image Statuses')
         ->assertSee('queued')
-        ->assertSee('total');
+        ->assertSee('Total images');
 });
 
 test('dashboard displays supported formats section', function () {

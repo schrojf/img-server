@@ -18,7 +18,7 @@
                 @if(Route::has('logout'))
                     <form method="POST" action="{{ route('logout') }}" class="inline">
                         @csrf
-                        <button type="submit" class="text-red-500 hover:text-red-700">Logout</button>
+                        <button type="submit" class="text-red-500 hover:text-red-700 cursor-pointer">Logout</button>
                     </form>
                 @endif
             </div>
