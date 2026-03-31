@@ -20,6 +20,7 @@ permissions:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    environment: Testing
     steps:
       - uses: actions/checkout@v6
 
@@ -34,16 +35,13 @@ jobs:
           npm install
 
       - name: Run Pint
-        run: ./vendor/bin/pint --test
-
-      # - name: Format Frontend
-      #   run: npm run format
-
-      # - name: Lint Frontend
-      #   run: npm run lint
+        run: composer lint
 
       # - name: Commit Changes
       #   uses: stefanzweifel/git-auto-commit-action@v7
       #   with:
       #     commit_message: fix code style
       #     commit_options: '--no-verify'
+      #     file_pattern: |
+      #       **/*
+      #       !.github/workflows/*
