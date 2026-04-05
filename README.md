@@ -297,7 +297,7 @@ php artisan token:manage prune
 Mark stale processing images as expired.
 
 ```bash
-php artisan image:expire
+php artisan images:expire
 ```
 
 ### 🧪 Check Supported Formats
@@ -329,13 +329,39 @@ php artisan images:supported-check
 Remove orphaned image and variant files from storage:
 
 ```bash
-php artisan image:images:cleanup-orphaned
+php artisan images:cleanup-orphaned
 ```
 
 List orphaned files but do not delete them:
 
 ```bash
-php artisan image:images:cleanup-orphaned --dry-run
+php artisan images:cleanup-orphaned --dry-run
+```
+
+### 🔍 Diagnose Image
+
+Run a complete read-only diagnostic on a single image (file existence, sizes, variant completeness, errors):
+
+```bash
+php artisan images:doctor 42
+```
+
+### 🔄 Retry Failed Images
+
+Diagnose and retry failed or expired images. Checks file integrity on disk and re-triggers download or variant generation synchronously:
+
+```bash
+php artisan images:retry 42        # Retry a specific image
+php artisan images:retry --all     # Retry all failed/expired images
+```
+
+### ♻️ Regenerate Variants
+
+Detect variant configuration changes (added/removed variants or encoders) and dispatch regeneration jobs for affected images:
+
+```bash
+php artisan images:regenerate-variants            # Dispatch regeneration jobs
+php artisan images:regenerate-variants --dry-run   # Preview without dispatching
 ```
 
 ## ✅ Testing
