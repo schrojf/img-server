@@ -1,5 +1,3 @@
-import './bootstrap';
-
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-toggle-section]').forEach(toggle => {
         const section = toggle.closest('.dashboard-section');
