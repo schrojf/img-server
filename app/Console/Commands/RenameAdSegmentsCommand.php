@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Enums\ImageStatus;
 use App\Models\Image;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class RenameAdSegmentsCommand extends Command
@@ -20,8 +21,20 @@ class RenameAdSegmentsCommand extends Command
 
     protected int $errors = 0;
 
+    protected const SUPPORTED_DRIVERS = ['mysql', 'mariadb'];
+
     public function handle(): int
     {
+        $driver = DB::getDriverName();
+
+        if (! in_array($driver, self::SUPPORTED_DRIVERS)) {
+            $this->components->error(
+                "Unsupported database driver \"{$driver}\". This command requires MySQL or MariaDB for JSON path queries."
+            );
+
+            return self::FAILURE;
+        }
+
         $isDryRun = $this->option('dry-run');
 
         $this->resumeInterruptedRenames($isDryRun);

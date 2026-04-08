@@ -4,7 +4,14 @@ use App\Models\Enums\ImageStatus;
 use App\Models\Image;
 use App\Support\ImageStorage;
 use Illuminate\Http\Testing\FileFactory;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+
+beforeEach(function () {
+    if (! in_array(DB::getDriverName(), ['mysql', 'mariadb'])) {
+        $this->markTestSkipped('Requires MySQL or MariaDB for JSON path queries.');
+    }
+});
 
 function createImageWithAdSegment(
     string $originalDisk,
