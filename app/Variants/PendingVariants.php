@@ -89,7 +89,7 @@ class PendingVariants
                 $encodedFiles[$pendingEncodings->variantName][$extension] = new ImageFile(
                     disk: $this->targetDisk,
                     fileName: $fileName,
-                    mimeType: $encoded->mimetype(),
+                    mimeType: $encoded->mediaType(),
                     size: $encoded->size(),
                     width: $width,
                     height: $height,

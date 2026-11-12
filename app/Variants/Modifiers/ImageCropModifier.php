@@ -24,7 +24,11 @@ class ImageCropModifier extends ImageModifier
 
     public function apply(Image $image): Image
     {
-        return $image->pad($this->width, $this->height, $this->backgroundColor, $this->position);
+        // Flatten transparency first so every encoded format gets the same opaque
+        // background, not only the padded areas added by containDown().
+        return $image
+            ->fillTransparentAreas($this->backgroundColor)
+            ->containDown($this->width, $this->height, $this->backgroundColor, $this->position);
     }
 
     public function toArray(): array

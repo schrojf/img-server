@@ -12,6 +12,7 @@ use App\Support\ImageStorage;
 use App\Variants\PendingVariants;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Intervention\Image\Colors\Rgb\Colorspace as RgbColorspace;
 use Intervention\Image\Image as InterventionImage;
 use Intervention\Image\ImageManager;
 
@@ -94,7 +95,12 @@ class GenerateVariantsAction
 
         try {
             /** @var InterventionImage $image */
-            $image = $this->imageManager->read($imageFileStream);
+            $image = $this->imageManager->decodeStream($imageFileStream);
+
+            // Variants are served on the web, so normalize CMYK and other sources to RGB.
+            if (! $image->colorspace() instanceof RgbColorspace) {
+                $image->setColorspace(new RgbColorspace);
+            }
         } catch (\Throwable $e) {
             throw ImageVariantGenerationException::sourceImageUnreadable(
                 $imageFile->disk,

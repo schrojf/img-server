@@ -39,7 +39,7 @@ class CheckSupportedImageFormatsAction
     public function handle(): array
     {
         $file = UploadedFile::fake()->image('image.jpg');
-        $image = $this->imageManager->read($file->getRealPath());
+        $image = $this->imageManager->decodePath($file->getRealPath());
 
         $results = [];
         foreach (static::$formats as $mime => [$encoder, $extension]) {
