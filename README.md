@@ -113,7 +113,7 @@ return [
         'autoExpire' => false,
     ],
 
-    'driver' => env('INTERVENTION_IMAGE_DRIVER', 'gd'), // gd, imagick, vips
+    'driver' => env('INTERVENTION_IMAGE_DRIVE', 'gd'), // gd, imagick, vips
     'avif' => env('AVIF_ENABLED', false),
 
 ];
